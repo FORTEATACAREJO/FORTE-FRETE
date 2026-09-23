@@ -1,0 +1,1 @@
+{"name":"forte-frete","private":true,"version":"4.0.0","scripts":{"build":"node build.js"}}
