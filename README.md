@@ -1,2 +1,3 @@
-# FORTE FRETE
-Base web V4 integrada ao Supabase Auth e preparada para Render. O frontend recebe somente chave publishable durante o build.
+# FORTE FRETE v5.0
+
+Operação de motoristas, cadastro e aprovação, rotas, cargas de 36–52 t, aceite por capacidade efetiva, integração com Forte Vendas, ordens de carregamento, viagens e pagamentos.
