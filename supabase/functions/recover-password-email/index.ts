@@ -1,30 +1,50 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-const origins=new Set(["https://forte-frete.onrender.com","http://localhost:5173"]);
-const message="Se o cadastro existir, as instruções serão enviadas preferencialmente ao WhatsApp cadastrado.";
-const hdr=(o:string)=>({"Access-Control-Allow-Origin":origins.has(o)?o:"https://forte-frete.onrender.com","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json","Cache-Control":"no-store"});
-const digits=(v:unknown)=>String(v??"").replace(/\D/g,"");
-Deno.serve(async(req)=>{
- const origin=req.headers.get("origin")||"",headers=hdr(origin);
+const origins = new Set(["https://forte-frete.onrender.com", "http://localhost:5173"]);
+const originDefault = "https://forte-frete.onrender.com";
+const normalizePhone = (v: unknown) => {const d=String(v??"").replace(/\D/g, "");return d.length===10||d.length===11?"55"+d:d;};
+const generic = "Se CPF/e-mail e WhatsApp corresponderem ao cadastro, o link para criar a senha será enviado ao WhatsApp cadastrado.";
+Deno.serve(async (req: Request) => {
+ const origin=req.headers.get("origin")||"";
+ const headers={"Access-Control-Allow-Origin":origins.has(origin)?origin:originDefault,"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json","Cache-Control":"no-store",Vary:"Origin"};
+ const reply=(body:unknown,status=200)=>Response.json(body,{status,headers});
  if(req.method==="OPTIONS")return new Response("ok",{headers});
- if(req.method!=="POST"||(origin&&!origins.has(origin)))return Response.json({error:"REQUISIÇÃO NÃO PERMITIDA."},{status:403,headers});
+ if(req.method!=="POST"||(origin&&!origins.has(origin)))return reply({error:"REQUISIÇÃO NÃO PERMITIDA."},403);
  try{
-  const {identificador=""}=await req.json(),raw=String(identificador).trim().toLowerCase(),byEmail=raw.includes("@"),value=byEmail?raw:digits(raw);
-  const admin=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
-  let account:any=null;
-  const uq=admin.from("usuarios_app").select("user_id,email,whatsapp").eq("ativo",true);
-  const {data:u}=byEmail?await uq.ilike("email",value).maybeSingle():await uq.eq("cpf",value).maybeSingle();
-  if(u)account=u;
-  if(!account){const mq=admin.from("motoristas").select("auth_user_id,email,telefone");const{data:m}=byEmail?await mq.ilike("email",value).maybeSingle():await mq.eq("cpf",value).maybeSingle();if(m)account={user_id:m.auth_user_id,email:m.email,whatsapp:m.telefone};}
-  let email=String(account?.email||"").trim().toLowerCase();
-  if(!email&&account?.user_id){const au=await admin.auth.admin.getUserById(account.user_id);email=String(au.data.user?.email||"").trim().toLowerCase();}
-  const whatsapp=digits(account?.whatsapp).replace(/^0+/,"");
-  if(email){
-   const link=await admin.auth.admin.generateLink({type:"recovery",email,options:{redirectTo:"https://forte-frete.onrender.com/?recovery=1"}});
-   const actionLink=link.data.properties?.action_link,token=Deno.env.get("WHATSAPP_ACCESS_TOKEN"),phoneId=Deno.env.get("WHATSAPP_PHONE_NUMBER_ID"),template=Deno.env.get("WHATSAPP_RECOVERY_TEMPLATE");
-   let sent=false;
-   if(actionLink&&whatsapp&&token&&phoneId&&template){const r=await fetch(`https://graph.facebook.com/${Deno.env.get("WHATSAPP_GRAPH_VERSION")||"v23.0"}/${phoneId}/messages`,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({messaging_product:"whatsapp",to:whatsapp,type:"template",template:{name:template,language:{code:"pt_BR"},components:[{type:"body",parameters:[{type:"text",text:actionLink}]}]}})});sent=r.ok;}
-   if(!sent&&!email.endsWith("@acesso.forte.internal")){const client=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_ANON_KEY")!,{auth:{persistSession:false}});await client.auth.resetPasswordForEmail(email,{redirectTo:"https://forte-frete.onrender.com/?recovery=1"});}
-  }
- }catch(e){console.error("RECOVERY_ERROR",String(e?.message||e))}
- return Response.json({message},{headers});
+  const body=await req.json();
+  const raw=String(body.identificador||"").trim().toLowerCase();
+  const byEmail=raw.includes("@");
+  const value=byEmail?raw:raw.replace(/\D/g,"");
+  const phone=normalizePhone(body.whatsapp);
+  if((byEmail?!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value):!/^\d{11}$/.test(value))||!/^55\d{10,11}$/.test(phone))return reply({error:"INFORME CPF OU E-MAIL E WHATSAPP VÁLIDO COM DDD."},400);
+  const token=Deno.env.get("WHATSAPP_ACCESS_TOKEN"),phoneId=Deno.env.get("WHATSAPP_PHONE_NUMBER_ID"),template=Deno.env.get("WHATSAPP_RECOVERY_TEMPLATE");
+  if(!token||!phoneId||!template)return reply({error:"A RECUPERAÇÃO POR WHATSAPP AINDA NÃO ESTÁ ATIVADA. CONTATE O ADMINISTRADOR."},503);
+  const admin=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false,autoRefreshToken:false}});
+  const hmacKey=await crypto.subtle.importKey("raw",new TextEncoder().encode(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const hash=async(text:string)=>Array.from(new Uint8Array(await crypto.subtle.sign("HMAC",hmacKey,new TextEncoder().encode(text)))).map(x=>x.toString(16).padStart(2,"0")).join("");
+  const now=Date.now(),bucket=Math.floor(now/60000),previous=bucket-1;
+  const keys=[await hash(value+":"+bucket),await hash(value+":"+previous)];
+  const rate=await admin.from("password_recovery_limits").insert(keys.map(request_key=>({request_key,created_at:new Date(now).toISOString()})));
+  if(rate.error?.code==="23505")return reply({error:"AGUARDE UM MINUTO ANTES DE SOLICITAR NOVAMENTE."},429);
+  if(rate.error)throw new Error("rate_limit_storage");
+  await admin.from("password_recovery_limits").delete().lt("created_at",new Date(now-86400000).toISOString());
+  const query=admin.from("usuarios_app").select("user_id,email,whatsapp").eq("ativo",true);
+  const found=byEmail?await query.eq("email",value).maybeSingle():await query.eq("cpf",value).maybeSingle();
+  if(found.error)throw new Error("account_lookup");
+  let account=found.data?{user_id:found.data.user_id,email:found.data.email,whatsapp:found.data.whatsapp}:null;
+  if(!account){const q=admin.from("motoristas").select("auth_user_id,email,telefone");const m=byEmail?await q.eq("email",value).maybeSingle():await q.eq("cpf",value).maybeSingle();if(m.error)throw new Error("driver_lookup");if(m.data)account={user_id:m.data.auth_user_id,email:m.data.email,whatsapp:m.data.telefone};}
+  if(!account||normalizePhone(account.whatsapp)!==phone)return reply({message:generic});
+  const user=await admin.auth.admin.getUserById(account.user_id);
+  if(user.error)throw new Error("auth_lookup");
+  const email=user.data.user?.email;
+  if(!email)return reply({message:generic});
+  const link=await admin.auth.admin.generateLink({type:"recovery",email,options:{redirectTo:originDefault+"/?recovery=1"}});
+  if(link.error||!link.data.properties?.action_link)throw new Error("recovery_link");
+  const actionLink=link.data.properties.action_link;
+  const version=Deno.env.get("WHATSAPP_GRAPH_VERSION")||"v23.0";
+  const components=[{type:"body",parameters:[{type:"text",text:actionLink}]}];
+  const response=await fetch(`https://graph.facebook.com/${version}/${phoneId}/messages`,{method:"POST",headers:{Authorization:`Bearer ${token}`,"Content-Type":"application/json"},body:JSON.stringify({messaging_product:"whatsapp",to:normalizePhone(account.whatsapp),type:"template",template:{name:template,language:{code:"pt_BR"},components}}),signal:AbortSignal.timeout(15000)});
+  const result=await response.json();
+  if(!response.ok||!result.messages?.[0]?.id)throw new Error("whatsapp_delivery");
+  return reply({message:generic});
+ }catch(error){console.error("WHATSAPP_RECOVERY_FAILED",error instanceof Error?error.message:"unexpected");return reply({error:"NÃO FOI POSSÍVEL ENVIAR PELO WHATSAPP AGORA. TENTE NOVAMENTE EM ALGUNS MINUTOS."},503);}
 });
