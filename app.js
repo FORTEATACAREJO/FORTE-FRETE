@@ -49,6 +49,7 @@ async function finishCad(){
  if(!session)throw new Error('Sessão expirada. Entre novamente.');await loadIdentity();if(!motorista)throw new Error('Cadastro não localizado.');saveCad();
  const verify=r=>{if(r.error)throw r.error;return r.data};
  if(!cad.titularPix||!cad.pix||!cad.favDoc)throw new Error('Informe nome, CPF/CNPJ e chave Pix do favorecido.');
+ cad.favDoc=String(cad.favDoc).toUpperCase().replace(/[.\/\-\s]/g,'');if(!verify(await s.rpc('validar_documento_favorecido',{p_value:cad.favDoc})))throw new Error('CPF/CNPJ do favorecido inválido. Confira os dígitos verificadores.');
  if(!cad.placa||!(cad.capacidade>0))throw new Error('Informe placa e capacidade do veículo.');
  const fav=cad.favorecidoId?{id:cad.favorecidoId}:verify(await s.from('favorecidos_frete').insert({nome:cad.titularPix,cpf_cnpj:cad.favDoc,banco:cad.banco||null}).select('id').single());cad.favorecidoId=fav.id;saveCad();
  const pixExistente=verify(await s.from('chaves_pix_frete').select('id').eq('favorecido_id',fav.id).eq('chave',cad.pix));if(!pixExistente.length)verify(await s.from('chaves_pix_frete').insert({favorecido_id:fav.id,tipo:cad.pixTipo||'CPF',chave:cad.pix,principal:true}));
