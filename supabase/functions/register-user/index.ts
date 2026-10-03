@@ -14,7 +14,7 @@ Deno.serve(async req=>{
   const b=await req.json(),nome=String(b.nome||"").trim(),cpf=String(b.cpf||"").replace(/\D/g,""),email=String(b.email||"").trim().toLowerCase(),perfil=String(b.perfil||"MOTORISTA");
   let whatsapp=String(b.whatsapp||"").replace(/\D/g,"");if(/^\d{10,11}$/.test(whatsapp))whatsapp="55"+whatsapp;
   const cpfValid=()=>{if(!/^\d{11}$/.test(cpf)||/^(\d)\1{10}$/.test(cpf))return false;for(const n of[9,10]){let sum=0;for(let i=0;i<n;i++)sum+=Number(cpf[i])*(n+1-i);if((sum*10%11)%10!==Number(cpf[n]))return false}return true};
-  if(nome.length<3||!cpfValid()||!/^55\d{10,11}$/.test(whatsapp)||(email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)))return reply({error:"CONFIRA NOME, CPF, E-MAIL E WHATSAPP."},400);
+  if(nome.length<3||!cpfValid()||!/^55[1-9]\d[2-9]\d{7,8}$/.test(whatsapp)||(email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)))return reply({error:"CONFIRA NOME, CPF, E-MAIL E WHATSAPP."},400);
   if(!["MOTORISTA","ADMIN"].includes(perfil)||(perfil==="ADMIN"&&!["MASTER","ULTRA_ADMIN"].includes(caller.data.perfil)))return reply({error:"PERFIL NÃO PERMITIDO."},403);
   const existing=await admin.from("usuarios_app").select("user_id").eq("cpf",cpf).maybeSingle();
   if(existing.error)throw new Error("lookup");if(existing.data)return reply({error:"CPF JÁ CADASTRADO. USE A RECUPERAÇÃO DE SENHA."},409);

@@ -29,7 +29,7 @@ Deno.serve(async (req: Request) => {
     const nome = String(b.nome || "").trim(), cpf = String(b.cpf || "").replace(/\D/g, ""), email = String(b.email || "").trim().toLowerCase(), nascimento = String(b.data_nascimento || "");
     let whatsapp = String(b.whatsapp || "").replace(/\D/g, "");
     if (/^\d{10,11}$/.test(whatsapp)) whatsapp = "55" + whatsapp;
-    if (nome.length < 3 || !validCpf(cpf) || !/^55\d{10,11}$/.test(whatsapp) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !validBirth(nascimento) || typeof b.password !== "string" || !/^\d{6,}$/.test(b.password)) {
+    if (nome.length < 3 || !validCpf(cpf) || !/^55[1-9]\d[2-9]\d{7,8}$/.test(whatsapp) || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !validBirth(nascimento) || typeof b.password !== "string" || !/^\d{6,}$/.test(b.password)) {
       return reply({error: "Confira nome, CPF, WhatsApp, e-mail, nascimento e senha numérica com no mínimo 6 dígitos."}, 400);
     }
     const url = Deno.env.get("SUPABASE_URL")!, key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

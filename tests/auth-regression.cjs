@@ -33,6 +33,7 @@ async function edge(name,body,state={}){
 }
 (async()=>{
  const signup={nome:'MOTORISTA TESTE',cpf:'52998224725',whatsapp:'34999990001',email:'driver@example.invalid',data_nascimento:'1980-01-01',password:'123456789'};
+ for(const whatsapp of ['00000000000','5500000000000','349999900','553499999000122'])assert.equal((await edge('register-driver-invite',{...signup,whatsapp})).status,400);
  for(const field of ['email','data_nascimento']){const r=await edge('register-driver-invite',{...signup,[field]:''});assert.equal(r.status,400);assert.equal(r.writes.length,0)}
  for(const birth of ['2026-02-30','2999-01-01'])assert.equal((await edge('register-driver-invite',{...signup,data_nascimento:birth})).status,400);
  for(const password of ['12345','abcdef','12345a'])assert.equal((await edge('register-driver-invite',{...signup,password})).status,400);
