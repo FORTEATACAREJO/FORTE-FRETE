@@ -9,13 +9,14 @@ function show(el){[login,cadastro,recuperacao,app].forEach(x=>x.classList.add('h
 function msg(t){$('#loginMsg').textContent=t}
 async function invoke(name,body){const{data,error}=await s.functions.invoke(name,{body});if(error)throw error;return data}
 let installEvent=null;window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvent=e});if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
-$('#btnInstalar').onclick=async()=>{if(/iPad|iPhone|iPod/.test(navigator.userAgent))return msg('No iPhone: abra no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início.');if(!installEvent)return msg('Use o menu do navegador e escolha Instalar aplicativo ou Adicionar à tela inicial.');await installEvent.prompt();installEvent=null};
+if($('#btnInstalar')) $('#btnInstalar').onclick=async()=>{if(/iPad|iPhone|iPod/.test(navigator.userAgent))return msg('No iPhone: abra no Safari, toque em Compartilhar e depois em Adicionar à Tela de Início.');if(!installEvent)return msg('Use o menu do navegador e escolha Instalar aplicativo ou Adicionar à tela inicial.');await installEvent.prompt();installEvent=null};
 $('#loginId').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'').slice(0,11)};
 $('#loginPass').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'')};
 $('#btnLogin').onclick=async()=>{try{const cpf=$('#loginId').value,password=$('#loginPass').value;if(!/^\d{11}$/.test(cpf)||!/^\d{6,}$/.test(password))return msg('Informe CPF e senha numérica com no mínimo 6 dígitos.');localStorage.setItem('forteFreteCpf',cpf);msg('Entrando...');const d=await invoke('login-cpf',{cpf,password});const r=await s.auth.setSession({access_token:d.access_token,refresh_token:d.refresh_token});if(r.error)throw r.error}catch(e){let detail='Não foi possível conectar. Tente novamente.';if(e?.context instanceof Response){try{detail=(await e.context.clone().json()).error||detail}catch{}}msg(detail)}};
 $('#recoveryChannel').onchange=()=>{$('#recoveryEmailLabel').classList.toggle('hidden',$('#recoveryChannel').value!=='email');$('#recoveryPhoneLabel').classList.toggle('hidden',$('#recoveryChannel').value!=='whatsapp')};
+let recoveryOpen=false;
 $('#btnEsqueciSenha').onclick=async()=>{
- $('#recoveryFields').classList.remove('hidden');$('#btnEsqueciSenha').textContent='ENVIAR LINK DE RECUPERAÇÃO';
+ if(!recoveryOpen){$('#recoveryFields').classList.remove('hidden');$('#btnEsqueciSenha').textContent='ENVIAR LINK DE RECUPERAÇÃO';recoveryOpen=true;msg('Escolha E-mail ou WhatsApp e informe o contato cadastrado.');return}
  const identificador=$('#loginId').value,canal=$('#recoveryChannel').value,email=$('#recoveryEmail').value.trim(),whatsapp=$('#recoveryPhone').value.trim();
  if(!/^\d{11}$/.test(identificador))return msg('Informe o CPF cadastrado.');
  if(canal==='email'&&!email)return msg('Informe o e-mail cadastrado.');
