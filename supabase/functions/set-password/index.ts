@@ -12,14 +12,14 @@ Deno.serve(async req=>{
   const identity=await admin.auth.getUser(token);
   if(identity.error||!identity.data.user)return reply({error:'LINK EXPIRADO. Solicite um novo link de recuperação.'},401);
   const uid=identity.data.user.id;
-  const account=await admin.from('usuarios_app').select('ativo').eq('user_id',uid).single();
-  if(account.error||!account.data.ativo)return reply({error:'ACESSO NÃO AUTORIZADO.'},403);
+  const account=await admin.from('usuarios_app').select('ativo,status_aprovacao').eq('user_id',uid).single();
+  if(account.error||!account.data||['BLOQUEADO','REPROVADO'].includes(account.data.status_aprovacao))return reply({error:'ACESSO NÃO AUTORIZADO.'},403);
   const {password}=await req.json();
-  if(typeof password!=='string'||!/^\d{6}$/.test(password))return reply({error:'USE EXATAMENTE SEIS NÚMEROS.'},400);
+  if(typeof password!=='string'||!/^\d{6,}$/.test(password))return reply({error:'USE SOMENTE NÚMEROS E NO MÍNIMO 6 DÍGITOS.'},400);
   const saved=await admin.auth.admin.updateUserById(uid,{password});
   if(saved.error)return reply({error:'NÃO FOI POSSÍVEL SALVAR A SENHA.'},400);
   const released=await admin.from('usuarios_app').update({trocar_senha:false}).eq('user_id',uid).select('user_id').single();
   if(released.error)return reply({error:'SENHA SALVA, MAS A LIBERAÇÃO FALHOU. TENTE NOVAMENTE.'},503);
-  return reply({message:'Senha salva. Entre com CPF e a nova senha de seis números.'});
+  return reply({message:'Senha salva. Entre com CPF e a nova senha numérica com no mínimo 6 dígitos.'});
  }catch{return reply({error:'NÃO FOI POSSÍVEL SALVAR A SENHA AGORA.'},503)}
 });

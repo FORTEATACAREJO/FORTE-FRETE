@@ -30,7 +30,7 @@ Deno.serve(async (req: Request) => {
   if(rate.error?.code==="23505")return reply({error:"AGUARDE UM MINUTO ANTES DE SOLICITAR NOVAMENTE."},429);
   if(rate.error)throw new Error("rate_limit_storage");
   await admin.from("password_recovery_limits").delete().lt("created_at",new Date(now-86400000).toISOString());
-  const query=admin.from("usuarios_app").select("user_id,email,whatsapp").eq("ativo",true);
+  const query=admin.from("usuarios_app").select("user_id,email,whatsapp,status_aprovacao").in("status_aprovacao",["APROVADO","PENDENTE"]);
   const found=await query.eq("cpf",value).maybeSingle();
   if(found.error)throw new Error("account_lookup");
   let account=found.data?{user_id:found.data.user_id,email:found.data.email,whatsapp:found.data.whatsapp}:null;
