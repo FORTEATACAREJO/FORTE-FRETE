@@ -3,7 +3,30 @@
 <title>Forte Frete</title><link rel="icon" href="favicon.svg"><link rel="manifest" href="manifest.webmanifest">
 <style>
 :root{--navy:#0b1f3a;--blue:#174ea6;--green:#16834b;--red:#d71920;--orange:#d97706;--bg:#f4f7fb;--line:#dbe3ee;--text:#172033}*{box-sizing:border-box}body{margin:0;font:15px Arial,sans-serif;background:var(--bg);color:var(--text)}button,input,select,textarea{font:inherit}.hidden{display:none!important}.topbar{height:72px;background:var(--navy);color:#fff;display:flex;align-items:center;padding:0 22px;gap:14px;position:sticky;top:0;z-index:5}.brand{font-size:22px;font-weight:900}.brand small{display:block;font-size:11px;font-weight:400;opacity:.8}.shell{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 72px)}aside{background:#102947;color:#dbeafe;padding:16px 10px}.menu button{width:100%;border:0;background:transparent;color:inherit;text-align:left;padding:12px;border-radius:9px;margin:2px 0;cursor:pointer}.menu button:hover,.menu button.active{background:#1d4169;color:#fff}.content{padding:22px;max-width:1450px;width:100%;margin:auto}.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;box-shadow:0 2px 8px #0b1f3a0a;margin-bottom:16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}.kpi b{font-size:28px;display:block;margin-top:8px}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;background:#e8eef8}.ok{background:#dcfce7;color:#166534}.warn{background:#ffedd5;color:#9a3412}.bad{background:#fee2e2;color:#991b1b}.btn{border:0;border-radius:9px;padding:11px 14px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}.btn.green{background:var(--green)}.btn.red{background:var(--red)}.btn.light{background:#eef3f9;color:#19304f}.btn.full{width:100%}.actions{display:flex;gap:8px;flex-wrap:wrap}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.formgrid .wide{grid-column:1/-1}label{font-weight:700;font-size:13px}input,select,textarea{width:100%;min-height:48px;border:1px solid #cbd5e1;border-radius:9px;padding:10px;margin-top:5px;background:#fff}textarea{min-height:80px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px 9px;border-bottom:1px solid #edf1f5;vertical-align:top}th{font-size:12px;color:#64748b}.linkbtn{border:0;background:none;color:var(--blue);font-weight:700;cursor:pointer;padding:0}.loginwrap{max-width:480px;margin:7vh auto;padding:0 18px}.loginhead{background:linear-gradient(135deg,#0b1f3a,#12385f);color:#fff;border-radius:22px 22px 0 0;padding:30px 28px}.loginhead .brand{font-size:26px;letter-spacing:.3px}.loginhead .brand small{font-size:13px;margin-top:5px}.loginbody{background:#fff;padding:30px 28px;border-radius:0 0 22px 22px;box-shadow:0 16px 42px #0b1f3a14}.loginbody h2{margin:0 0 22px;font-size:26px}.loginbody>label{display:block;margin-bottom:16px}.loginbody .actions{margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:10px}.loginbody .actions .btn{min-height:48px}.loginbody .actions .linkbtn{grid-column:1/-1;text-align:center;padding:10px}.loginbody input,.loginbody select{border-radius:12px;min-height:52px;font-size:16px}.loginbody input:focus,.loginbody select:focus{outline:3px solid #174ea61a;border-color:var(--blue)}.step{font-size:12px;color:#64748b;margin-bottom:10px}.driverbar{display:flex;justify-content:space-between;gap:10px;align-items:center}.notice{padding:12px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe}.mobileNav{display:none}.bigaction{min-height:62px;font-size:17px}.routechecks{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}.routechecks label{background:#f8fafc;padding:10px;border:1px solid var(--line);border-radius:8px}.routechecks input{width:auto;min-height:auto;margin:0 7px 0 0}
-@media(max-width:800px){.shell{display:block}aside{display:none}.content{padding:14px}.formgrid{grid-template-columns:1fr}.topbar{height:64px}.mobileNav{display:flex;position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);z-index:9}.mobileNav button{flex:1;border:0;background:#fff;padding:12px 4px;font-size:11px}.content{padding-bottom:75px}table{font-size:13px}.tablewrap{overflow:auto}}
+@media(max-width:800px){
+.shell{display:block;min-height:calc(100dvh - 96px)}
+aside{display:none}
+.topbar{height:auto;min-height:96px;padding:10px 16px;align-items:flex-start;gap:10px;position:sticky;top:0}
+.topbar>.brand{font-size:20px;line-height:1.08;padding-top:4px;min-width:0}
+.topbar>.brand small{font-size:11px;line-height:1.25;margin-top:5px}
+.topbar>.actions{margin-left:auto!important;display:grid;grid-template-columns:1fr;gap:6px;flex:0 0 auto}
+.topbar>.actions .btn{padding:8px 12px;min-height:36px;white-space:nowrap}
+.content{padding:18px 14px calc(112px + env(safe-area-inset-bottom));overflow-x:hidden}
+.content>h2{font-size:27px;margin:10px 0 18px}
+.grid{grid-template-columns:1fr;gap:12px}
+.card{margin-bottom:12px;padding:16px}
+.formgrid{grid-template-columns:1fr}
+.mobileNav{display:flex;position:fixed;left:0;right:0;bottom:0;min-height:64px;padding-bottom:env(safe-area-inset-bottom);background:#fff;border-top:1px solid var(--line);z-index:20;box-shadow:0 -4px 18px #0b1f3a18}
+.mobileNav button{flex:1;min-width:0;border:0;background:#fff;padding:10px 3px;font-size:10px;line-height:1.15;overflow-wrap:anywhere}
+table{font-size:13px}.tablewrap{overflow:auto}
+}
+@media(max-width:420px){
+.topbar{padding:9px 12px}
+.topbar>.brand{font-size:18px}
+.topbar>.actions .btn{font-size:12px;padding:7px 9px}
+.content{padding-left:12px;padding-right:12px}
+.mobileNav button{font-size:9.5px}
+}
 </style></head><body>
 <div id="login" class="loginwrap"><div class="loginhead"><div class="brand">FORTE FRETE<small>Motoristas, cargas e viagens</small></div></div><div class="loginbody">
 <h2>Acesso</h2><label>CPF<input id="loginId" inputmode="numeric" maxlength="11" pattern="[0-9]{11}" autocomplete="username"></label><label>Senha<input id="loginPass" inputmode="numeric" minlength="6" pattern="[0-9]{6,}" type="password" autocomplete="current-password"></label>
