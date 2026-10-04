@@ -8,7 +8,7 @@ Deno.serve(async (req: Request) => {
  const headers={"Access-Control-Allow-Origin":origins.has(origin)?origin:originDefault,"Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS","Content-Type":"application/json","Cache-Control":"no-store",Vary:"Origin"};
  const reply=(body:unknown,status=200)=>Response.json(body,{status,headers});
  if(req.method==="OPTIONS")return new Response("ok",{headers});
- if(req.method!=="POST"||(origin&&!origins.has(origin)))return reply({error:"REQUISIÇÃO NÃO PERMITIDA."},403);
+ if(req.method!=="POST"||!origins.has(origin))return reply({error:"REQUISIÇÃO NÃO PERMITIDA."},403);
  try{
   const body=await req.json();
   const raw=String(body.identificador||"").trim().toLowerCase();
@@ -57,3 +57,5 @@ Deno.serve(async (req: Request) => {
   return reply({message:generic});
  }catch(error){console.error("PASSWORD_RECOVERY_FAILED",error instanceof Error?error.message:"unexpected");return reply({error:"NÃO FOI POSSÍVEL ENVIAR O LINK AGORA. TENTE NOVAMENTE EM ALGUNS MINUTOS."},503);}
 });
+
+
