@@ -103,7 +103,7 @@ await audit("CADASTRO_"+b.decision,uid);return reply({message:"Decisão registra
 if(action!=="STATUS")return reply({error:"Ação inválida."},400);
 const active=Boolean(p.active??p.ativo)&&(!p.status_aprovacao||p.status_aprovacao==="APROVADO"),changing=Boolean(p.must_change_password||p.trocar_senha);
 const approved=managed?r?.status==="APROVADO":r?r.status==="APROVADO":legacyAllowed(p,app);
-const notes=await admin.from("access_notifications").select("id,event,message,created_at").eq("user_id",uid).eq("audience","USER").order("created_at",{ascending:false}).limit(5);
+const notes=r?await admin.from("access_notifications").select("id,event,message,created_at").eq("user_id",uid).eq("request_id",r.id).eq("audience","USER").order("created_at",{ascending:false}).limit(5):{data:[]};
 return reply({allowed:Boolean(approved&&active&&!changing),status:r?.status||(approved?"APROVADO":"SEM_SOLICITACAO"),isAdmin,changing,name:p.full_name||p.nome,notifications:notes.data||[]});
 }catch(error){
 if(admin&&createdId){await admin.from("access_requests").delete().eq("user_id",createdId);await admin.from("access_notifications").delete().eq("user_id",createdId);const fiscal=Deno.env.get("SUPABASE_URL")?.includes("xmfpvvmvdkepmnvtdoio"),frete=Deno.env.get("SUPABASE_URL")?.includes("nkynfboqwfxhhxcsrawl");if(frete)await admin.from("motoristas").delete().eq("auth_user_id",createdId);await admin.from(fiscal?"profiles":frete?"usuarios_app":"fc_perfis").delete().eq(fiscal?"id":"user_id",createdId);await admin.auth.admin.deleteUser(createdId)}
