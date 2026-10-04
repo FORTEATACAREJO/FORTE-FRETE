@@ -8,5 +8,5 @@ Cadastros e senhas já existentes não foram regravados. O Fiscal continua em ba
 
 A recuperação usa CPF e o contato cadastrado. O retorno solicitado pelo serviço corresponde ao aplicativo de origem, incluindo /admin.html para o site. Não informe que uma mensagem foi entregue sem confirmação do provedor. É necessário manter os destinos permitidos e os modelos em português no painel do Supabase; o WhatsApp também exige token, número empresarial e modelo configurados.
 
-Validação: 41 cenários SQL com ROLLBACK, 14 testes do serviço, 10 simulações de tela nos oito aplicativos, 21 verificações de regressão da Central e builds dos projetos. Scripts SQL usam somente dados temporários; não executar sem BEGIN/ROLLBACK.
+Validação: 41 cenários SQL com ROLLBACK, 14 testes do serviço, 11 simulações de tela nos oito aplicativos, 21 verificações de regressão da Central e builds dos projetos. Scripts SQL usam somente dados temporários; não executar sem BEGIN/ROLLBACK.
 
