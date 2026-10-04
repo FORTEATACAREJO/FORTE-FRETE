@@ -55,7 +55,7 @@ await audit("CADASTRO_ENVIADO",createdId);createdId=null;
 return reply({status:"PENDENTE",message:"Cadastro enviado para análise. Aguarde aprovação do admin ou master. Entre com CPF e senha para acompanhar."},201);
 }
 if(action==="LOGIN"){
-const cpf=digits(b.cpf);if(!validCpf(cpf)||typeof b.password!=="string"||!/^\d{6,}$/.test(b.password))return reply({error:"Informe CPF e senha numérica com no mínimo 6 dígitos."},400);
+const cpf=digits(b.cpf);if(!validCpf(cpf)||typeof b.password!=="string"||!b.password||b.password.length>256)return reply({error:"Informe CPF e sua senha cadastrada."},400);
 if(!await rate("login:"+cpf,5))return reply({error:"Muitas tentativas. Aguarde um minuto."},429);
 const p=await admin.from(table).select(idcol).eq("cpf",cpf).limit(2);
 if(p.error||p.data?.length!==1){await audit("LOGIN_RECUSADO");return reply({error:"CPF ou senha inválidos."},401)}
@@ -63,6 +63,11 @@ const user=await admin.auth.admin.getUserById(p.data[0][idcol]);
 const auth=createClient(url,Deno.env.get("SUPABASE_ANON_KEY")!,{auth:{persistSession:false,autoRefreshToken:false}});
 const logged=await auth.auth.signInWithPassword({email:user.data.user?.email||"",password:b.password});
 if(logged.error||!logged.data.session){await audit("LOGIN_RECUSADO");return reply({error:"CPF ou senha inválidos."},401)}
+if(!/^\d{6,}$/.test(b.password)){
+const migrate=await admin.from(table).update(fiscal?{must_change_password:true}:{trocar_senha:true}).eq(idcol,logged.data.user.id);
+if(migrate.error)throw Error("Não foi possível preparar a atualização da senha. Tente novamente.");
+await audit("PADRONIZACAO_SENHA_EXIGIDA",logged.data.user.id);
+}
 await audit("LOGIN_CONFIRMADO",logged.data.user.id);
 return reply({access_token:logged.data.session.access_token,refresh_token:logged.data.session.refresh_token});
 }
