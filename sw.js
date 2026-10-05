@@ -1,4 +1,5 @@
-const CACHE="forte-frete-auth-20261005-3";
+importScripts('/forte-notification-worker.js?v=20261005-1');
+const CACHE="forte-frete-auth-20261005-notifications-1";
 const CORE=['/','/index.html','/access-standard.js','/profiles.js','/app.js','/registration.js','/export-cadastros.js','/manifest.webmanifest','/favicon.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));

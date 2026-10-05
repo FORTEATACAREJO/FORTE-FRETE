@@ -117,3 +117,5 @@ s.auth.onAuthStateChange((evento,x)=>{session=x;if(evento==='PASSWORD_RECOVERY'|
 function exportView(){view.innerHTML='<h2>Exportar cadastros</h2><section class="card"><p>Gere um arquivo com motoristas, veículos, favorecidos, chaves Pix, rotas e documentos anexados.</p><button class="btn" id="exportCadastros">EXPORTAR CADASTROS</button><p role="status" id="exportStatus"></p></section>';$('#exportCadastros').onclick=async()=>{const button=$('#exportCadastros'),status=$('#exportStatus');button.disabled=true;try{const r=await exportCadastros(s,t=>status.textContent=t);status.textContent=`Arquivo gerado: ${r.motoristas} motoristas, ${r.veiculos} veículos e ${r.anexos} documentos.`}catch(e){status.textContent=e.message||'Não foi possível exportar agora.'}finally{button.disabled=false}}}
 
 
+
+const notificationView=new URLSearchParams(location.search).get('forte_view');if(notificationView==='cargas')route('cargas');

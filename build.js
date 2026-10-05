@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const files = ['index.html', 'access-standard.js', 'profiles.js', 'app.js', 'registration.js', 'export-cadastros.js', 'favicon.svg', 'manifest.webmanifest', 'sw.js'];
+const files = ['index.html', 'access-standard.js', 'forte-notifications.js', 'forte-notification-worker.js', 'notification-bridge.js', 'notification-bridge.html', 'profiles.js', 'app.js', 'registration.js', 'export-cadastros.js', 'favicon.svg', 'manifest.webmanifest', 'sw.js'];
 const dist = path.resolve('dist');
 fs.mkdirSync(dist, { recursive: true });
 for (const file of files) {

@@ -1,1 +1,18 @@
-{"name":"FORTE FRETE","short_name":"FORTE FRETE","start_url":"/","display":"standalone","theme_color":"#d71920","background_color":"#ffffff"}
+{
+  "name": "FORTE FRETE",
+  "short_name": "FORTE FRETE",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#d71920",
+  "background_color": "#ffffff",
+  "scope": "/",
+  "id": "/",
+  "icons": [
+    {
+      "src": "https://site-forte-atacarejo.onrender.com/central/icons/frete-aprovado-320.png",
+      "sizes": "320x320",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

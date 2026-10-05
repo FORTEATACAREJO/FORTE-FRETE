@@ -1,3 +1,4 @@
+import {startNotifications} from "./forte-notifications.js";
 export const normalizeCpf=value=>String(value||"").replace(/\D/g,"");
 export function readLastCpf(app,storage){try{const legacy={fiscal:"forteFiscalLastIdentifier",frete:"forteFreteCpf",financeiro:"forte_financeiro_login"};const v=normalizeCpf(storage.getItem("forte:remembered-cpf:"+app)||storage.getItem("forte:last-cpf")||(legacy[app]&&storage.getItem(legacy[app])));return /^\d{11}$/.test(v)?v:""}catch{return ""}}
 export function saveLastCpf(app,value,storage){const cpf=normalizeCpf(value);if(!/^\d{11}$/.test(cpf))return "";try{storage.setItem("forte:remembered-cpf:"+app,cpf);storage.setItem("forte:last-cpf",cpf)}catch{}return cpf}
@@ -6,6 +7,7 @@ const names={vendas:"Forte Vendas",financeiro:"Forte Financeiro","venda-externa"
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const digits=v=>String(v||"").replace(/\D/g,"");
 export function startAccess({client,app,content,onAllowed,onBlocked}){
+const notificationControl=startNotifications({client,app});
 let cpfStorage;try{cpfStorage=localStorage}catch{}
 let rememberedCpf=readLastCpf(app,cpfStorage);
 const rememberCpf=value=>{const saved=saveLastCpf(app,value,cpfStorage);if(saved)rememberedCpf=saved};
@@ -70,7 +72,7 @@ const render=()=>{const term=search.value.toLocaleLowerCase("pt-BR"),matched=use
 function adminUI(isAdmin){if(!isAdmin){adminBox.innerHTML="";return}if(!adminBox.querySelector(".fa-admin-button")){adminBox.innerHTML='<button class="fa-admin-button" aria-live="polite">CADASTROS • CONFERINDO FILA</button><section class="fa-admin-panel" hidden></section>';adminBox.querySelector("button").onclick=()=>{queueOpen=true;adminBox.querySelector("section").hidden=false;refreshQueue(true)}}refreshQueue()}
 async function check(){
 if(disposed)return;if(checking){checkAgain=true;return}checking=true;
-try{const s=await accessTimeout(client.auth.getSession());if(!s.data.session){const wasApproved=approved;if(approved){approved=false;onBlocked?.()}adminUI(false);if(wasApproved||box.hidden||mode==="pending"||mode==="password"){mode="login";draw()}else if(!box.querySelector("form"))draw();return}
+try{await notificationControl.ready;const s=await accessTimeout(client.auth.getSession());if(!s.data.session){const wasApproved=approved;if(approved){approved=false;onBlocked?.()}adminUI(false);if(wasApproved||box.hidden||mode==="pending"||mode==="password"){mode="login";draw()}else if(!box.querySelector("form"))draw();return}
 const r=await call("STATUS");lastStatus=r;if(r.cpf)rememberCpf(r.cpf);
 if(recovery||r.changing){approved=false;onBlocked?.();adminUI(false);if(mode!=="password"||!box.querySelector("form")){mode="password";draw()}return}
 if(r.allowed){if(!approved){if(mounted){location.reload();return}mounted=true;approved=true;box.hidden=true;if(content)content.hidden=false;onAllowed?.(r);resolveReady(r)}adminUI(r.isAdmin);return}
@@ -79,5 +81,5 @@ if(approved){approved=false;onBlocked?.()}adminUI(false);if(["request","recover"
 }
 const sub=client.auth.onAuthStateChange(event=>{if(event==="PASSWORD_RECOVERY")recovery=true;setTimeout(check,0)}).data.subscription;
 const timer=setInterval(()=>{if(document.visibilityState==="visible")check()},15000);draw();check();
-return {ready,check,dispose(){disposed=true;clearInterval(timer);toolbarObserver.disconnect();sub.unsubscribe();box.remove();adminBox.remove();style.remove()}};
+return {ready,check,dispose(){notificationControl.dispose();disposed=true;clearInterval(timer);toolbarObserver.disconnect();sub.unsubscribe();box.remove();adminBox.remove();style.remove()}};
 }
