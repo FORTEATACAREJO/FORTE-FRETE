@@ -1,49 +1,93 @@
-name: Android Store Build
+name: Android APK and Store Build
 on:
   push:
     branches: [main]
-    paths: ['android-apk/**', 'favicon.svg', '.github/workflows/android-apk.yml']
+    paths: ['android-apk/**', 'favicon.svg', '.github/workflows/android-apk.yml', 'tests/**', 'supabase/functions/**', '*.js', 'index.html']
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   validate-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-node@v4
         with:
-          distribution: temurin
-          java-version: '17'
-
-      - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
-
-      - name: Prepare official launcher icon
-        run: |
-          mkdir -p android-apk/app/src/main/res/drawable
-          sudo apt-get update
-          sudo apt-get install -y imagemagick
-          convert -background none favicon.svg -resize 512x512 android-apk/app/src/main/res/drawable/app_icon.png
-
+          node-version: '24.19.0'
       - name: Run regression tests
         run: |
           node tests/auth-regression.cjs
           node tests/export-regression.cjs
           node tests/freight-numeric-simulation.cjs
           node tests/frontend-regression.cjs
-
-      - name: Build release bundle
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Prepare official launcher icon
+        run: |
+          mkdir -p android-apk/app/src/main/res/drawable
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          convert -background none favicon.svg -resize 512x512 android-apk/app/src/main/res/drawable/app_icon.png
+      - name: Build installable test APK
         working-directory: android-apk
-        run: gradle :app:bundleRelease --no-daemon
-
-      - name: Upload Play Store bundle
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+      - name: Upload installable test APK
         uses: actions/upload-artifact@v4
         with:
-          name: ForteFrete-PlayStore-AAB
+          name: ForteFrete-APK-Teste
+          path: android-apk/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+      - name: Prepare store signing
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.FORTE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.FORTE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.FORTE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.FORTE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          configured=0
+          for value in "$KEYSTORE_BASE64" "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD"; do
+            if [ -n "$value" ]; then configured=$((configured + 1)); fi
+          done
+          if [ "$configured" -eq 0 ]; then
+            echo 'signed=false' >> "$GITHUB_OUTPUT"
+            echo 'artifact=ForteFrete-AAB-Sem-Assinatura' >> "$GITHUB_OUTPUT"
+            echo '### Assinatura pendente' >> "$GITHUB_STEP_SUMMARY"
+            echo 'APK de testes disponível. O AAB não pode ser enviado à Play Store até configurar FORTE_KEYSTORE_BASE64, FORTE_KEYSTORE_PASSWORD, FORTE_KEY_ALIAS e FORTE_KEY_PASSWORD.' >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$configured" -ne 4 ]; then
+            echo '::error::Configuração de assinatura incompleta: configure os quatro secrets FORTE_KEYSTORE_*.'
+            exit 1
+          else
+            umask 077
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/forte-upload.jks"
+            echo "FORTE_KEYSTORE_FILE=$RUNNER_TEMP/forte-upload.jks" >> "$GITHUB_ENV"
+            echo 'signed=true' >> "$GITHUB_OUTPUT"
+            echo 'artifact=ForteFrete-PlayStore-AAB-Assinado' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build release bundle
+        working-directory: android-apk
+        env:
+          FORTE_KEYSTORE_PASSWORD: ${{ secrets.FORTE_KEYSTORE_PASSWORD }}
+          FORTE_KEY_ALIAS: ${{ secrets.FORTE_KEY_ALIAS }}
+          FORTE_KEY_PASSWORD: ${{ secrets.FORTE_KEY_PASSWORD }}
+        run: gradle :app:bundleRelease --no-daemon --stacktrace
+      - name: Verify store signature
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          jarsigner -verify android-apk/app/build/outputs/bundle/release/app-release.aab
+          unzip -Z1 android-apk/app/build/outputs/bundle/release/app-release.aab | grep -Eq '^META-INF/.*\.(RSA|DSA|EC)$'
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.signing.outputs.artifact }}
           path: android-apk/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
+      - name: Remove signing file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/forte-upload.jks"
