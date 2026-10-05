@@ -1,6 +1,31 @@
 plugins { id 'com.android.application' }
 android {
- namespace 'br.com.forteatacarejo.frete'
- compileSdk 35
- defaultConfig { applicationId 'br.com.forteatacarejo.frete'; minSdk 24; targetSdk 35; versionCode 1; versionName '1.0.0' }
+  namespace 'br.com.forteatacarejo.frete'
+  compileSdk 35
+
+  defaultConfig {
+    applicationId 'br.com.forteatacarejo.frete'
+    minSdk 24
+    targetSdk 35
+    versionCode 2
+    versionName '1.0.1'
+  }
+
+  signingConfigs {
+    release {
+      if (System.getenv('FORTE_KEYSTORE_FILE')) {
+        storeFile file(System.getenv('FORTE_KEYSTORE_FILE'))
+        storePassword System.getenv('FORTE_KEYSTORE_PASSWORD')
+        keyAlias System.getenv('FORTE_KEY_ALIAS')
+        keyPassword System.getenv('FORTE_KEY_PASSWORD')
+      }
+    }
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+      if (System.getenv('FORTE_KEYSTORE_FILE')) signingConfig signingConfigs.release
+    }
+  }
 }
