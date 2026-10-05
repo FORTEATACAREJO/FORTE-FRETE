@@ -38,6 +38,19 @@ const table=fiscal?"profiles":frete?"usuarios_app":"fc_perfis",idcol=fiscal?"id"
 const readProfile=async(uid:string)=>{const r=await admin.from(table).select("*").eq(idcol,uid).maybeSingle();if(r.error)throw Error("Falha ao conferir cadastro.");return r.data};
 const rate=async(value:string,slots=1)=>{const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(key),{name:"HMAC",hash:"SHA-256"},false,["sign"]);for(let i=0;i<slots;i++){const a=new Uint8Array(await crypto.subtle.sign("HMAC",k,new TextEncoder().encode("standard:"+value+":"+Math.floor(Date.now()/60000)+":"+i)));const r=await admin.from("password_recovery_limits").insert({request_key:Array.from(a).map(x=>x.toString(16).padStart(2,"0")).join("")});if(!r.error)return true;if(r.error.code!=="23505")throw Error("Falha ao conferir tentativas.")}return false};
 const audit=async(event:string,uid:string|null=null)=>{await admin.from("access_audit").insert({app,event,user_id:uid})};
+const recoveryGeneric="Se os dados corresponderem ao cadastro, a solicitação será encaminhada ao admin ou master. Aguarde o contato no WhatsApp cadastrado.";
+if(action==="RECOVERY_OPTIONS")return reply({email:true,admin:true,whatsapp:Boolean(Deno.env.get("WHATSAPP_ACCESS_TOKEN")&&Deno.env.get("WHATSAPP_PHONE_NUMBER_ID")&&Deno.env.get("WHATSAPP_RECOVERY_TEMPLATE"))});
+if(action==="RECOVERY_REQUEST"){
+ const cpf=digits(b.cpf),birth=String(b.data_nascimento||"");let phone=digits(b.whatsapp);if(/^\d{10,11}$/.test(phone))phone="55"+phone;
+ if(!validCpf(cpf)||!validBirth(birth)||!/^55[1-9]\d[2-9]\d{7,8}$/.test(phone))return reply({error:"Informe CPF, WhatsApp cadastrado com DDD e nascimento válidos."},400);
+ if(!await rate("recovery-admin:"+cpf)||!await rate("recovery-admin-ip:"+(req.headers.get("x-forwarded-for")||"unknown").split(",")[0],8))return reply({error:"Aguarde um minuto antes de solicitar novamente."},429);
+ const found=await admin.from(table).select("*").eq("cpf",cpf).limit(2);if(found.error)throw Error("Não foi possível conferir a solicitação.");
+ const target=found.data?.length===1?found.data[0]:null;let registered=digits(target?.whatsapp);if(/^\d{10,11}$/.test(registered))registered="55"+registered;
+ if(!target||registered!==phone||target.data_nascimento&&target.data_nascimento!==birth)return reply({message:recoveryGeneric});
+ const saved=await admin.from("access_recovery_requests").insert({user_id:target[idcol],app,claimed_phone:phone,claimed_birth:birth});
+ if(saved.error&&saved.error.code!=="23505")throw Error("Não foi possível registrar a solicitação.");
+ if(!saved.error)await audit("RECUPERACAO_SOLICITADA",target[idcol]);return reply({message:recoveryGeneric});
+}
 if(action==="REGISTER"){
 const v=validateRegistration(b);
 if(v.email==="masterforteatacarejo@gmail.com"||v.email?.endsWith("@acesso.forte.internal"))return reply({error:"Use um e-mail pessoal válido."},400);
@@ -75,10 +88,26 @@ const token=(req.headers.get("authorization")||"").replace(/^Bearer\s+/i,""),u=a
 if(u.error||!u.data.user)return reply({error:"Sessão inválida. Entre novamente."},401);
 const uid=u.data.user.id,p=await readProfile(uid);if(!p)return reply({error:"Cadastro não localizado."},403);
 const isAdmin=Boolean((p.active??p.ativo)&&(!p.status_aprovacao||p.status_aprovacao==="APROVADO")&&!p.must_change_password&&!p.trocar_senha&&["MASTER","ADMIN","ADMINISTRADOR","ULTRA_ADMIN"].includes(p.role||p.perfil));
+if(action==="RECOVERY_REVIEW"){
+ if(!["ATENDIDO","RECUSADO"].includes(b.decision))return reply({error:"Informe uma decisão válida para a recuperação."},400);
+ if(!isAdmin)return reply({error:"Somente admin ou master aprovado pode analisar."},403);
+ if(b.decision==="ATENDIDO"&&b.verified_contact!==true)return reply({error:"Confirme a identidade pelo contato já cadastrado antes de gerar a senha."},400);
+ const claimed=await admin.rpc("access_recovery_claim",{p_request:b.id,p_actor:uid,p_decision:b.decision,p_reason:b.reason||null});
+ if(claimed.error)return reply({error:claimed.error.message||"Não foi possível analisar a recuperação."},400);
+ const target=claimed.data;if(!target?.user_id)throw Error("Não foi possível conferir o destinatário.");
+ if(b.decision==="RECUSADO"){await audit("RECUPERACAO_RECUSADA",uid);return reply({message:"Solicitação recusada."})}
+ let temporary="";while(temporary.length<8){const bytes=crypto.getRandomValues(new Uint8Array(16));for(const n of bytes){if(n<250&&temporary.length<8)temporary+=String(n%10)}}
+ const changed=await admin.auth.admin.updateUserById(target.user_id,{password:temporary});
+ if(changed.error){await admin.from("access_recovery_requests").update({status:"PENDENTE"}).eq("id",b.id).eq("status","PROCESSANDO");throw Error("Não foi possível gerar a senha. A solicitação continua aguardando análise.")}
+ const completed=await admin.from("access_recovery_requests").update({status:"ATENDIDO"}).eq("id",b.id).eq("status","PROCESSANDO");
+ await audit(completed.error?"RECUPERACAO_SENHA_GERADA_REGISTRO_PENDENTE":"RECUPERACAO_SENHA_GERADA",uid);
+ return reply({temporary_password:temporary,name:target.nome,whatsapp:target.whatsapp,message:completed.error?"Senha temporária criada. Entregue ao titular verificado; o registro administrativo precisa ser conferido.":"Senha temporária criada. Entregue somente ao titular verificado no contato cadastrado. Ele deverá criar outra senha ao entrar."});
+}
 if(action==="SET_PASSWORD"){
 if(typeof b.password!=="string"||!/^\d{6,}$/.test(b.password))return reply({error:"Use somente números, com no mínimo 6 dígitos."},400);
 const updated=await admin.auth.admin.updateUserById(uid,{password:b.password});if(updated.error)throw Error("Não foi possível salvar a senha.");
 const prof=await admin.from(table).update(fiscal?{must_change_password:false}:{trocar_senha:false}).eq(idcol,uid);if(prof.error)throw Error("Senha salva. Não foi possível concluir a atualização do perfil.");
+await admin.from("access_recovery_requests").update({status:"UTILIZADO"}).eq("user_id",uid).eq("status","ATENDIDO");
 await audit("SENHA_ALTERADA",uid);return reply({message:"Senha alterada. Entre novamente com a nova senha."});
 }
 const requests=await admin.from("access_requests").select("*").eq("user_id",uid);if(requests.error)throw Error("Falha ao conferir solicitações.");
@@ -97,11 +126,19 @@ if(pending.error)throw Error("Falha ao carregar fila.");
 let items=pending.data||[];
 if(!fiscal&&!frete){const ids=items.map((x:any)=>x.user_id);if(ids.length){const scoped=await admin.from("fc_perfis").select("user_id").eq("empresa_id",p.empresa_id).in("user_id",ids);if(scoped.error)throw Error("Falha ao conferir empresa.");const allowed=new Set((scoped.data||[]).map((x:any)=>x.user_id));items=items.filter((x:any)=>allowed.has(x.user_id))}}
 const units=fiscal?await admin.from("user_establishments").select("establishment_id,establishments(code)").eq("user_id",uid):{data:[]};
-return reply({pending:items,units:units.data||[],message:items.length+" usuário(s) aguardando análise."});
+const resets=await admin.from("access_recovery_requests").select("id,user_id,app,claimed_phone,claimed_birth,created_at").eq("status","PENDENTE").order("created_at");if(resets.error)throw Error("Não foi possível carregar recuperações.");
+ const resetIds=(resets.data||[]).map((x:any)=>x.user_id),profiles=resetIds.length?await admin.from(table).select("*").in(idcol,resetIds):{data:[]};if(profiles.error)throw Error("Não foi possível conferir destinatários.");
+ const targetUnits=fiscal&&resetIds.length?await admin.from("user_establishments").select("user_id,establishment_id").in("user_id",resetIds):{data:[]};if(targetUnits.error||units.error)throw Error("Não foi possível conferir unidades.");
+ const ownUnits=new Set((units.data||[]).map((x:any)=>x.establishment_id));
+ const recoveries=(resets.data||[]).flatMap((r:any)=>{const target=(profiles.data||[]).find((x:any)=>x[idcol]===r.user_id);if(!target||!fiscal&&!frete&&target.empresa_id!==p.empresa_id)return [];
+ const scopes=(targetUnits.data||[]).filter((x:any)=>x.user_id===r.user_id);if(fiscal&&scopes.length&&!scopes.some((x:any)=>ownUnits.has(x.establishment_id)))return [];
+ const master=["MASTER","ULTRA_ADMIN"].includes(target.role||target.perfil),canReset=!master||["MASTER","ULTRA_ADMIN"].includes(p.role||p.perfil);
+ return [{...r,nome:target.full_name||target.nome,cpf:target.cpf,whatsapp:target.whatsapp,can_reset:canReset}];});
+ return reply({roles:[{"value":"MASTER","label":"Master"},{"value":"ADMIN","label":"Administrador"},{"value":"MOTORISTA","label":"Motorista"}].filter(x=>x.value!=="MASTER"&&x.value!=="ADMIN"||["MASTER","ULTRA_ADMIN"].includes(String(p.role||p.perfil))),pending:items,recoveries,units:units.data||[],message:items.length+" cadastro(s) e "+recoveries.length+" recuperação(ões) aguardando análise."});
 }
 if(action==="REVIEW"){
 if(!isAdmin)return reply({error:"Somente admin ou master aprovado pode analisar."},403);
-const reviewed=await admin.rpc("access_review",{p_request:b.id,p_actor:uid,p_decision:b.decision,p_unit:b.unit||null,p_reason:b.reason||null});
+const reviewed=await admin.rpc("access_review_with_role",{p_request:b.id,p_actor:uid,p_decision:b.decision,p_role:typeof b.role==="string"?b.role:null,p_units:Array.isArray(b.units)?b.units:b.unit?[b.unit]:[],p_reason:b.reason||null});
 if(reviewed.error)return reply({error:reviewed.error.message||"Não foi possível registrar a decisão."},400);
 await audit("CADASTRO_"+b.decision,uid);return reply({message:"Decisão registrada. O usuário será avisado na sua tela de acesso.",...reviewed.data});
 }
