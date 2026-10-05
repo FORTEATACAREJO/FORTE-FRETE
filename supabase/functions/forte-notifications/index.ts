@@ -73,10 +73,11 @@ Deno.serve(async req=>{
    const removed=await client.from("forte_push_subscriptions").delete().eq("user_id",uid).eq("app",app).eq("endpoint",body.endpoint);if(removed.error)throw Error("Não foi possível desativar avisos.");
   }else if(body.action==="SUBSCRIBE"){
    if(!validSubscription(body.subscription))return reply({error:"Dispositivo de notificações inválido."},400);
-   const saved=await client.from("forte_push_subscriptions").upsert({user_id:uid,app,endpoint:body.subscription.endpoint,subscription:body.subscription,last_signature:"",updated_at:new Date().toISOString()},{onConflict:"endpoint,app"});if(saved.error)throw Error("Não foi possível ativar avisos.");
+   const previous=await client.from("forte_push_subscriptions").select("user_id,subscription,last_signature").eq("endpoint",body.subscription.endpoint).eq("app",app).maybeSingle();if(previous.error)throw Error("Não foi possível ativar avisos.");
+   const sameDevice=previous.data?.user_id===uid&&previous.data.subscription?.keys?.p256dh===body.subscription.keys.p256dh&&previous.data.subscription?.keys?.auth===body.subscription.keys.auth&&Boolean(previous.data.subscription?.forte_central)===Boolean(body.subscription.forte_central);
+   const saved=await client.from("forte_push_subscriptions").upsert({user_id:uid,app,endpoint:body.subscription.endpoint,subscription:body.subscription,last_signature:sameDevice?previous.data.last_signature:"",updated_at:new Date().toISOString()},{onConflict:"endpoint,app"});if(saved.error)throw Error("Não foi possível ativar avisos.");
   }else if(body.action==="SEEN"){const saved=await client.from("forte_notice_reads").upsert({user_id:uid,app,seen_at:new Date().toISOString()});if(saved.error)throw Error("Não foi possível marcar os avisos.")}
   else if(body.action!=="SNAPSHOT")return reply({error:"Ação inválida."},400);
   return reply({...state,publicKey:config.data.publicKey});
  }catch{return reply({error:"Não foi possível atualizar os avisos. Tente novamente."},503)}
 });
-
