@@ -1,27 +1,49 @@
-name: Android APK
+name: Android Store Build
 on:
   push:
     branches: [main]
-    paths: ['android-apk/**', '.github/workflows/android-apk.yml']
+    paths: ['android-apk/**', 'favicon.svg', '.github/workflows/android-apk.yml']
   workflow_dispatch:
+
 permissions:
-  contents: write
+  contents: read
+
 jobs:
-  build:
+  validate-and-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
-        with: {distribution: temurin, java-version: '17'}
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - uses: gradle/actions/setup-gradle@v4
-        with: {gradle-version: '8.7'}
+        with:
+          gradle-version: '8.7'
+
       - name: Prepare official launcher icon
         run: |
           mkdir -p android-apk/app/src/main/res/drawable
-          sudo apt-get update && sudo apt-get install -y imagemagick\n          mkdir -p android-apk/app/src/main/res/drawable\n          convert -background none favicon.svg -resize 512x512 android-apk/app/src/main/res/drawable/app_icon.png
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          convert -background none favicon.svg -resize 512x512 android-apk/app/src/main/res/drawable/app_icon.png
 
-      - working-directory: android-apk
-        run: gradle :app:assembleDebug --no-daemon
-      - run: cp android-apk/app/build/outputs/apk/debug/app-debug.apk ForteFrete.apk
-      - uses: ncipollo/release-action@v1
-        with: {tag: android-latest, name: 'Forte Frete Android', artifacts: 'ForteFrete.apk', allowUpdates: true, replacesArtifacts: true, makeLatest: true}
+      - name: Run regression tests
+        run: |
+          node tests/auth-regression.cjs
+          node tests/export-regression.cjs
+          node tests/freight-numeric-simulation.cjs
+          node tests/frontend-regression.cjs
+
+      - name: Build release bundle
+        working-directory: android-apk
+        run: gradle :app:bundleRelease --no-daemon
+
+      - name: Upload Play Store bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ForteFrete-PlayStore-AAB
+          path: android-apk/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
