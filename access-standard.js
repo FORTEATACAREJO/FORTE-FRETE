@@ -1,11 +1,14 @@
+export const normalizeCpf=value=>String(value||"").replace(/\D/g,"");
+export function readLastCpf(app,storage){try{const legacy={fiscal:"forteFiscalLastIdentifier",frete:"forteFreteCpf",financeiro:"forte_financeiro_login"};const v=normalizeCpf(storage.getItem("forte:remembered-cpf:"+app)||storage.getItem("forte:last-cpf")||(legacy[app]&&storage.getItem(legacy[app])));return /^\d{11}$/.test(v)?v:""}catch{return ""}}
+export function saveLastCpf(app,value,storage){const cpf=normalizeCpf(value);if(!/^\d{11}$/.test(cpf))return "";try{storage.setItem("forte:remembered-cpf:"+app,cpf);storage.setItem("forte:last-cpf",cpf)}catch{}return cpf}
+export function accessTimeout(promise,ms=20000){let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error("A conexão demorou. Tente novamente; sua sessão não foi encerrada.")),ms)})]).finally(()=>clearTimeout(timer))}
 const names={vendas:"Forte Vendas",financeiro:"Forte Financeiro","venda-externa":"Forte Venda Externa","carga-direta":"Forte Carga Direta",patio:"Forte Operador de Pátio",site:"Administração do site",frete:"Forte Frete",fiscal:"Forte Fiscal"};
 const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const digits=v=>String(v||"").replace(/\D/g,"");
 export function startAccess({client,app,content,onAllowed,onBlocked}){
-const cpfStorageKey="forte:remembered-cpf:"+app;
-let rememberedCpf="";
-try{const saved=localStorage.getItem(cpfStorageKey)||"";if(/^\d{11}$/.test(saved))rememberedCpf=saved}catch{}
-const rememberCpf=value=>{const cpf=digits(value);if(!/^\d{11}$/.test(cpf))return;rememberedCpf=cpf;try{localStorage.setItem(cpfStorageKey,cpf)}catch{}};
+let cpfStorage;try{cpfStorage=localStorage}catch{}
+let rememberedCpf=readLastCpf(app,cpfStorage);
+const rememberCpf=value=>{const saved=saveLastCpf(app,value,cpfStorage);if(saved)rememberedCpf=saved};
 const box=document.createElement("div"),adminBox=document.createElement("div");box.className="forte-access";adminBox.className="forte-access-admin";document.body.prepend(box);document.body.append(adminBox);if(content)content.hidden=true;
 const style=document.createElement("style");style.textContent=`
 .forte-access{position:fixed;inset:0;z-index:5000;overflow:auto;background:linear-gradient(135deg,#0b2445,#1268ac);padding:24px;box-sizing:border-box;font:16px Arial;color:#172b45}.forte-access [hidden],.forte-access-admin [hidden]{display:none!important}.forte-access section{max-width:460px;margin:24px auto;background:#fff;border-radius:22px;padding:28px;box-shadow:0 15px 50px #001b3b55}.forte-access h1{margin:0 0 12px;color:#174f94;font-size:28px}.forte-access p,.forte-access small{line-height:1.5}.forte-access form{display:grid;gap:12px}.forte-access label{display:grid;gap:6px;font-size:14px}.forte-access input,.forte-access select{box-sizing:border-box;width:100%;padding:12px;font:16px Arial;border:1px solid #b9c6d5;border-radius:10px;background:white;color:#172b45;text-transform:none}.forte-access button,.forte-access-admin button{padding:13px;border:0;border-radius:10px;background:#1455a3;color:white;font-weight:bold;cursor:pointer}.forte-access button[disabled]{opacity:.6}.forte-access .fa-link{background:#eef4fc;color:#164b87;width:100%;margin-top:10px}.forte-access .fa-notice{background:#edf3fc;border-radius:10px;padding:12px;white-space:pre-wrap}.forte-access-admin{font:14px Arial;color:#172b45}.forte-access-admin .fa-admin-button{position:static;max-width:100%;white-space:normal;background:#123963;box-shadow:none}.forte-access-admin .fa-admin-panel{position:fixed;inset:20px;z-index:5500;overflow:auto;background:white;border:2px solid #123963;border-radius:18px;padding:20px;box-shadow:0 20px 100px #0008}.forte-access-admin article{border:1px solid #ccd7e4;border-radius:12px;padding:15px;margin:14px 0}.forte-access-admin article p{line-height:1.6}.forte-access-admin input,.forte-access-admin select{padding:10px;width:100%;box-sizing:border-box;font:16px Arial;border:1px solid #b9c6d5;border-radius:8px;margin:8px 0}.forte-access-admin button{margin:4px}.forte-access-admin .fa-reject{background:#a42626}.forte-access-admin .fa-admin-status{white-space:pre-wrap}.forte-access-admin h2{color:#174f94}@media(max-width:500px){.forte-access{padding:12px}.forte-access section{padding:22px;margin:12px auto}.forte-access-admin .fa-admin-panel{inset:8px;padding:14px}}
@@ -13,10 +16,10 @@ const style=document.createElement("style");style.textContent=`
 `;document.head.append(style);
 const mountAdmin=()=>{const host=document.querySelector('[data-forte-top-actions]');if(host&&adminBox.parentElement!==host)host.appendChild(adminBox)};
 const toolbarObserver=new MutationObserver(mountAdmin);toolbarObserver.observe(document.body,{childList:true,subtree:true});mountAdmin();
-let mode=rememberedCpf?"login":"register",notice="",lastStatus=null,disposed=false,checking=false,approved=false,mounted=false,resolveReady,queueOpen=false,lastPendingCount=null;
+let mode="login",notice="",lastStatus=null,disposed=false,checking=false,checkAgain=false,approved=false,mounted=false,resolveReady,queueOpen=false,lastPendingCount=null;
 let recovery=new URLSearchParams(location.search).get("recovery")==="1"||location.hash.includes("type=recovery");
 const ready=new Promise(resolve=>resolveReady=resolve);
-const call=async(action,body={})=>{const r=await client.functions.invoke("access-standard",{body:{action,...body}});if(r.error){let msg="Não foi possível concluir. Confira a conexão e tente novamente.";if(r.error.context instanceof Response){try{msg=(await r.error.context.clone().json()).error||msg}catch{}}throw Error(msg)}return r.data};
+const call=async(action,body={})=>{const r=await accessTimeout(client.functions.invoke("access-standard",{body:{action,...body}}));if(r.error){let msg="Não foi possível concluir. Confira a conexão e tente novamente.";if(r.error.context instanceof Response){try{msg=(await r.error.context.clone().json()).error||msg}catch{}}throw Error(msg)}return r.data};
 const input=(name,label,type="text",extra="")=>`<label>${label}<input name="${name}" type="${type}" ${extra} required></label>`;
 function draw(){
 box.hidden=false;if(content)content.hidden=true;const pending=mode==="pending";
@@ -30,18 +33,19 @@ const desc=mode==="register"?"Preencha os dados e envie para análise. O acesso 
 box.innerHTML=`<section><h1>${esc(names[app])}</h1><h2>${titles[mode]}</h2><p>${desc}</p>${fields?`<form>${fields}<button type="submit">${({register:"ENVIAR PARA ANÁLISE",login:"ENTRAR",recover:"ENVIAR LINK DE RECUPERAÇÃO",password:"SALVAR NOVA SENHA",request:"ENVIAR SOLICITAÇÃO"})[mode]}</button></form>`:""}<p class="fa-notice" role="status" aria-live="polite">${esc(notice)}</p>${pending?`<button class="fa-link" data-nav="check">ATUALIZAR SITUAÇÃO</button>${lastStatus?.status==="SEM_SOLICITACAO"?'<button class="fa-link" data-nav="request">SOLICITAR ACESSO A ESTE APLICATIVO</button>':""}<button class="fa-link" data-nav="logout">SAIR</button>`:`<button class="fa-link" data-nav="${mode==="register"?"login":"register"}">${mode==="register"?"JÁ TENHO CADASTRO • ENTRAR":"PRIMEIRO CADASTRO"}</button><button class="fa-link" data-nav="recover">ESQUECI MINHA SENHA</button>${mode==="password"?'<button class="fa-link" data-nav="logout">CANCELAR E SAIR</button>':""}`}</section>`;
 box.querySelectorAll("[data-nav]").forEach(el=>el.onclick=async()=>{if(el.dataset.nav==="logout"){recovery=false;history.replaceState(null,"",location.pathname);await client.auth.signOut();mode="login"}else if(el.dataset.nav==="check"){await check();return}else mode=el.dataset.nav;notice="";draw()});
 const form=box.querySelector("form");if(!form)return;
-if((mode==="login"||mode==="recover")&&form.elements.cpf)form.elements.cpf.value=rememberedCpf;
+if(form.elements.cpf){form.elements.cpf.value=rememberedCpf;form.elements.cpf.oninput=()=>rememberCpf(form.elements.cpf.value);}
 if(mode!=="login")form.querySelectorAll('input[name="password"],input[name="confirm"]').forEach(el=>el.oninput=()=>el.value=digits(el.value));
 if(mode==="recover")form.elements.canal.onchange=()=>{const email=form.elements.canal.value==="email";box.querySelector("#fa-contact-label").innerHTML=(email?"E-mail cadastrado":"WhatsApp cadastrado com DDD")+`<input name="contact" type="${email?"email":"tel"}" required>`};
 form.onsubmit=async e=>{e.preventDefault();const b=Object.fromEntries(new FormData(form)),button=form.querySelector("button");button.disabled=true;const output=box.querySelector('[role="status"]');output.textContent="Conferindo dados…";
 try{
+if(b.cpf!==undefined){b.cpf=normalizeCpf(b.cpf);rememberCpf(b.cpf);if(!/^\d{11}$/.test(b.cpf))throw Error("Informe CPF com 11 números, com ou sem pontos e traço.");}
 if(mode!=="login"&&b.password&&(!/^\d{6,}$/.test(b.password)||b.confirm&&b.password!==b.confirm))throw Error("Informe senha numérica com no mínimo 6 dígitos e confirme a mesma senha.");
 if(mode==="register"){const r=await call("REGISTER",b);notice=r.message;mode="login";draw()}
-else if(mode==="login"){const r=await call("LOGIN",b);const auth=await client.auth.setSession({access_token:r.access_token,refresh_token:r.refresh_token});if(auth.error)throw Error("Não foi possível abrir a sessão.");rememberCpf(b.cpf);form.elements.password.value="";await check()}
+else if(mode==="login"){const r=await call("LOGIN",b);const auth=await accessTimeout(client.auth.setSession({access_token:r.access_token,refresh_token:r.refresh_token}));if(auth.error)throw Error("Não foi possível abrir a sessão.");rememberCpf(b.cpf);form.elements.password.value="";await check()}
 else if(mode==="request"){notice=(await call("REQUEST",b)).message;await check()}
-else if(mode==="password"){const r=await call("SET_PASSWORD",b);recovery=false;history.replaceState(null,"",location.pathname);await client.auth.signOut();mode="login";notice=r.message;draw()}
+else if(mode==="password"){const r=await call("SET_PASSWORD",b);recovery=false;history.replaceState(null,"",location.pathname);if(r.access_token&&r.refresh_token){const auth=await accessTimeout(client.auth.setSession({access_token:r.access_token,refresh_token:r.refresh_token}));if(auth.error)throw Error("Senha salva. Entre com a nova senha.");mode="login";await check()}else{await client.auth.signOut();mode="login";notice=r.message;draw()}}
 else if(mode==="recover"){const r=await client.functions.invoke("recover-password-email",{body:{identificador:digits(b.cpf),canal:b.canal,email:b.canal==="email"?b.contact:"",whatsapp:b.canal==="whatsapp"?b.contact:""}});if(r.error){let message="Não foi possível enviar o link.";if(r.error.context instanceof Response){try{message=(await r.error.context.clone().json()).error||message}catch{}}throw Error(message)}notice=r.data.message;output.textContent=notice}
-}catch(error){output.textContent=error.message||"Não foi possível concluir.";button.disabled=false}
+}catch(error){output.textContent=error.message||"Não foi possível concluir.";}finally{button.disabled=false}
 };
 }
 async function refreshQueue(force=false){
@@ -55,13 +59,13 @@ panel.querySelectorAll("[data-decision]").forEach(btn=>btn.onclick=async()=>{con
 }
 function adminUI(isAdmin){if(!isAdmin){adminBox.innerHTML="";return}if(!adminBox.querySelector(".fa-admin-button")){adminBox.innerHTML='<button class="fa-admin-button" aria-live="polite">CADASTROS • CONFERINDO FILA</button><section class="fa-admin-panel" hidden></section>';adminBox.querySelector("button").onclick=()=>{queueOpen=true;adminBox.querySelector("section").hidden=false;refreshQueue(true)}}refreshQueue()}
 async function check(){
-if(disposed||checking)return;checking=true;
-try{const s=await client.auth.getSession();if(!s.data.session){if(approved){approved=false;onBlocked?.()}adminUI(false);if(mode==="pending"||mode==="password"){mode="login";draw()}else if(!box.querySelector("form"))draw();return}
-const r=await call("STATUS");lastStatus=r;
+if(disposed)return;if(checking){checkAgain=true;return}checking=true;
+try{const s=await accessTimeout(client.auth.getSession());if(!s.data.session){const wasApproved=approved;if(approved){approved=false;onBlocked?.()}adminUI(false);if(wasApproved||box.hidden||mode==="pending"||mode==="password"){mode="login";draw()}else if(!box.querySelector("form"))draw();return}
+const r=await call("STATUS");lastStatus=r;if(r.cpf)rememberCpf(r.cpf);
 if(recovery||r.changing){approved=false;onBlocked?.();adminUI(false);if(mode!=="password"||!box.querySelector("form")){mode="password";draw()}return}
 if(r.allowed){if(!approved){if(mounted){location.reload();return}mounted=true;approved=true;box.hidden=true;if(content)content.hidden=false;onAllowed?.(r);resolveReady(r)}adminUI(r.isAdmin);return}
 if(approved){approved=false;onBlocked?.()}adminUI(false);if(["request","recover"].includes(mode)&&box.querySelector("form"))return;mode="pending";notice=r.notifications?.[0]?.message||(r.status==="SEM_SOLICITACAO"?"Seu cadastro ainda não tem autorização para este aplicativo. Solicite a análise.":"Cadastro enviado. Aguarde aprovação do admin ou master.");draw();
-}catch(e){if(approved){approved=false;onBlocked?.()}notice=e.message;draw()}finally{checking=false}
+}catch(e){if(approved){approved=false;onBlocked?.()}notice=e.message;draw()}finally{checking=false;if(checkAgain){checkAgain=false;setTimeout(check,0)}}
 }
 const sub=client.auth.onAuthStateChange(event=>{if(event==="PASSWORD_RECOVERY")recovery=true;setTimeout(check,0)}).data.subscription;
 const timer=setInterval(()=>{if(document.visibilityState==="visible")check()},15000);draw();check();

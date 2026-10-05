@@ -108,7 +108,10 @@ if(typeof b.password!=="string"||!/^\d{6,}$/.test(b.password))return reply({erro
 const updated=await admin.auth.admin.updateUserById(uid,{password:b.password});if(updated.error)throw Error("Não foi possível salvar a senha.");
 const prof=await admin.from(table).update(fiscal?{must_change_password:false}:{trocar_senha:false}).eq(idcol,uid);if(prof.error)throw Error("Senha salva. Não foi possível concluir a atualização do perfil.");
 await admin.from("access_recovery_requests").update({status:"UTILIZADO"}).eq("user_id",uid).eq("status","ATENDIDO");
-await audit("SENHA_ALTERADA",uid);return reply({message:"Senha alterada. Entre novamente com a nova senha."});
+await audit("SENHA_ALTERADA",uid);
+const auth=createClient(url,Deno.env.get("SUPABASE_ANON_KEY")!,{auth:{persistSession:false,autoRefreshToken:false}});
+const signed=await auth.auth.signInWithPassword({email:u.data.user.email||"",password:b.password});
+return reply({message:signed.data.session?"Senha alterada. Acesso atualizado.":"Senha alterada. Entre com a nova senha.",...(signed.data.session?{access_token:signed.data.session.access_token,refresh_token:signed.data.session.refresh_token}:{})});
 }
 const requests=await admin.from("access_requests").select("*").eq("user_id",uid);if(requests.error)throw Error("Falha ao conferir solicitações.");
 const rows=requests.data||[],r=rows.find((x:any)=>x.app===app),managed=rows.some((x:any)=>x.managed_account);
@@ -146,7 +149,7 @@ if(action!=="STATUS")return reply({error:"Ação inválida."},400);
 const active=Boolean(p.active??p.ativo)&&(!p.status_aprovacao||p.status_aprovacao==="APROVADO"),changing=Boolean(p.must_change_password||p.trocar_senha);
 const approved=managed?r?.status==="APROVADO":r?r.status==="APROVADO":legacyAllowed(p,app);
 const notes=r?await admin.from("access_notifications").select("id,event,message,created_at").eq("user_id",uid).eq("request_id",r.id).eq("audience","USER").order("created_at",{ascending:false}).limit(5):{data:[]};
-return reply({allowed:Boolean(approved&&active&&!changing),status:r?.status||(approved?"APROVADO":"SEM_SOLICITACAO"),isAdmin,changing,name:p.full_name||p.nome,notifications:notes.data||[]});
+return reply({allowed:Boolean(approved&&active&&!changing),status:r?.status||(approved?"APROVADO":"SEM_SOLICITACAO"),isAdmin,changing,cpf:p.cpf,name:p.full_name||p.nome,notifications:notes.data||[]});
 }catch(error){
 if(admin&&createdId){await admin.from("access_requests").delete().eq("user_id",createdId);await admin.from("access_notifications").delete().eq("user_id",createdId);const fiscal=Deno.env.get("SUPABASE_URL")?.includes("xmfpvvmvdkepmnvtdoio"),frete=Deno.env.get("SUPABASE_URL")?.includes("nkynfboqwfxhhxcsrawl");if(frete)await admin.from("motoristas").delete().eq("auth_user_id",createdId);await admin.from(fiscal?"profiles":frete?"usuarios_app":"fc_perfis").delete().eq(fiscal?"id":"user_id",createdId);await admin.auth.admin.deleteUser(createdId)}
 const message=error instanceof Error?error.message:"Não foi possível concluir. Tente novamente.";return reply({error:message},/^(Informe|CPF|E-mail|A senha)/.test(message)?400:503);
