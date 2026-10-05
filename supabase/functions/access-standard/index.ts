@@ -122,6 +122,27 @@ if(!p.cpf||!(p.full_name||p.nome)||!p.whatsapp)return reply({error:"Peça ao adm
 const saved=await admin.from("access_requests").insert({user_id:uid,app,nome:p.full_name||p.nome,cpf:p.cpf,whatsapp:p.whatsapp,email:p.email||null,data_nascimento:birth,managed_account:managed});
 if(saved.error)throw Error("Não foi possível enviar a solicitação.");await audit("SOLICITACAO_ENVIADA",uid);return reply({status:"PENDENTE",message:"Solicitação enviada. Aguarde aprovação do admin ou master."});
 }
+if(action==="USERS"){
+if(!isAdmin)return reply({error:"Somente admin ou master aprovado pode consultar usuários."},403);
+let query=admin.from(table).select("*").eq(fiscal?"active":"ativo",true).order(fiscal?"full_name":"nome");
+if(!fiscal&&!frete)query=query.eq("empresa_id",p.empresa_id);
+const found=await query;if(found.error)throw Error("Não foi possível carregar usuários ativos.");
+let candidates=found.data||[];
+if(fiscal){
+ const own=await admin.from("user_establishments").select("establishment_id").eq("user_id",uid);if(own.error)throw Error("Não foi possível conferir unidades.");
+ const units=(own.data||[]).map((x:any)=>x.establishment_id);
+ const scopes=units.length?await admin.from("user_establishments").select("user_id").in("establishment_id",units):{data:[]};if(scopes.error)throw Error("Não foi possível conferir usuários das unidades.");
+ const permitted=new Set((scopes.data||[]).map((x:any)=>x.user_id));candidates=candidates.filter((x:any)=>permitted.has(x[idcol]));
+}
+const ids=candidates.map((x:any)=>x[idcol]);
+const grants=ids.length?await admin.from("access_requests").select("user_id,app,status,managed_account").in("user_id",ids):{data:[]};if(grants.error)throw Error("Não foi possível conferir acessos ativos.");
+const users=candidates.filter((target:any)=>{
+ if(target.status_aprovacao&&target.status_aprovacao!=="APROVADO")return false;
+ const rows=(grants.data||[]).filter((x:any)=>x.user_id===target[idcol]),request=rows.find((x:any)=>x.app===app),managed=rows.some((x:any)=>x.managed_account);
+ return managed?request?.status==="APROVADO":request?request.status==="APROVADO":legacyAllowed({...target,must_change_password:false,trocar_senha:false},app);
+}).map((target:any)=>({id:target[idcol],nome:target.full_name||target.nome,cpf:target.cpf,whatsapp:target.whatsapp,email:target.email,role:target.role||target.perfil,changing:Boolean(target.must_change_password||target.trocar_senha),created_at:target.created_at}));
+return reply({users,app,message:users.length+" usuário(s) com acesso ativo a este aplicativo."});
+}
 if(action==="QUEUE"){
 if(!isAdmin)return reply({error:"Somente admin ou master aprovado pode analisar."},403);
 let pending=await admin.from("access_requests").select("id,user_id,app,nome,cpf,whatsapp,email,data_nascimento,created_at").eq("status","PENDENTE").order("created_at");
@@ -143,7 +164,15 @@ if(action==="REVIEW"){
 if(!isAdmin)return reply({error:"Somente admin ou master aprovado pode analisar."},403);
 const reviewed=await admin.rpc("access_review_with_role",{p_request:b.id,p_actor:uid,p_decision:b.decision,p_role:typeof b.role==="string"?b.role:null,p_units:Array.isArray(b.units)?b.units:b.unit?[b.unit]:[],p_reason:b.reason||null});
 if(reviewed.error)return reply({error:reviewed.error.message||"Não foi possível registrar a decisão."},400);
-await audit("CADASTRO_"+b.decision,uid);return reply({message:"Decisão registrada. O usuário será avisado na sua tela de acesso.",...reviewed.data});
+let metadataPending=false;
+if(b.decision==="APROVADO"){
+ const request=await admin.from("access_requests").select("user_id").eq("id",b.id).single();
+ const target=request.data?.user_id?await admin.auth.admin.getUserById(request.data.user_id):null;
+ if(request.error||target?.error||!target?.data.user)metadataPending=true;
+ else{const synced=await admin.auth.admin.updateUserById(target.data.user.id,{app_metadata:{...target.data.user.app_metadata,role:reviewed.data.role}});metadataPending=Boolean(synced.error)}
+ if(metadataPending)await audit("CADASTRO_METADATA_PENDENTE",uid);
+}
+await audit("CADASTRO_"+b.decision,uid);return reply({message:metadataPending?"Acesso aprovado e perfil salvo. A sincronização dos dados de autenticação precisa ser conferida pelo administrador.":b.decision==="APROVADO"?"Acesso aprovado e perfil salvo. O usuário já pode entrar neste aplicativo.":"Acesso recusado. O usuário verá o motivo na sua tela de acesso.",...reviewed.data});
 }
 if(action!=="STATUS")return reply({error:"Ação inválida."},400);
 const active=Boolean(p.active??p.ativo)&&(!p.status_aprovacao||p.status_aprovacao==="APROVADO"),changing=Boolean(p.must_change_password||p.trocar_senha);
