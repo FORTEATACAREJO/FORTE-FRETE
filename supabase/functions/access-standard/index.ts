@@ -134,7 +134,7 @@ const resets=await admin.from("access_recovery_requests").select("id,user_id,app
  const scopes=(targetUnits.data||[]).filter((x:any)=>x.user_id===r.user_id);if(fiscal&&scopes.length&&!scopes.some((x:any)=>ownUnits.has(x.establishment_id)))return [];
  const master=["MASTER","ULTRA_ADMIN"].includes(target.role||target.perfil),canReset=!master||["MASTER","ULTRA_ADMIN"].includes(p.role||p.perfil);
  return [{...r,nome:target.full_name||target.nome,cpf:target.cpf,whatsapp:target.whatsapp,can_reset:canReset}];});
- return reply({roles:[{"value":"MASTER","label":"Master"},{"value":"ADMIN","label":"Administrador"},{"value":"MOTORISTA","label":"Motorista"}].filter(x=>x.value!=="MASTER"&&x.value!=="ADMIN"||["MASTER","ULTRA_ADMIN"].includes(String(p.role||p.perfil))),pending:items,recoveries,units:units.data||[],message:items.length+" cadastro(s) e "+recoveries.length+" recuperação(ões) aguardando análise."});
+ return reply({roles:[{"value":"MASTER","label":"Master"},{"value":"ADMINISTRADOR","label":"Administrador"},{"value":"OPERADOR_GERAL","label":"Operador geral"},{"value":"OPERADOR_PATIO","label":"Operador de pátio"},{"value":"MOTORISTA","label":"Motorista"},{"value":"VENDEDOR_EXTERNO","label":"Vendedor externo"},{"value":"VENDEDOR_INTERNO","label":"Vendedor interno"}].filter(x=>x.value!=="MASTER"&&x.value!=="ADMINISTRADOR"||["MASTER","ULTRA_ADMIN"].includes(String(p.role||p.perfil))),pending:items,recoveries,units:units.data||[],message:items.length+" cadastro(s) e "+recoveries.length+" recuperação(ões) aguardando análise."});
 }
 if(action==="REVIEW"){
 if(!isAdmin)return reply({error:"Somente admin ou master aprovado pode analisar."},403);
