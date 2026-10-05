@@ -15,6 +15,7 @@ async function edge(name,body,state={}){
    if(name==='login-cpf'&&this.table==='usuarios_app')data=[data];
    if(this.table==='motoristas'&&this.action==='select')data={status_cadastro:'pre_cadastro'};
    if(this.action==='update')data=[{id:'test-record',user_id:'test-user'}];
+   if(this.action==='insert'&&this.table==='usuarios_app')data=[{id:'test-record',user_id:'new-user'}];
    if(state.failProfile&&this.table==='usuarios_app'&&this.action==='insert')error={code:'FAIL'};
    return Promise.resolve({data,error}).then(resolve,reject);
   }
