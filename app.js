@@ -2,7 +2,7 @@ import { PROFILE_CODES, PROFILE_LABELS, normalizeProfile, profileOptionsFor } fr
 import {startAccess} from "./access-standard.js";
 import{exportCadastros}from'./export-cadastros.js';
 import{registrationUI}from'./registration.js';
-import{createClient}from'https://esm.sh/@supabase/supabase-js@2.57.4';import{SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY}from'./config.js';
+import{createClient}from'https://esm.sh/@supabase/supabase-js@2.116.0';import{SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY}from'./config.js';
 const s=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY,{auth:{storage:localStorage,persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}),$=x=>document.querySelector(x),fmt=n=>Number(n||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const accessContent=document.createElement("div");accessContent.id="forte-protected";document.body.prepend(accessContent);for(const id of ["login","cadastro","recuperacao","app"])accessContent.append(document.getElementById(id));
 const accessControl=startAccess({client:s,app:"frete",content:accessContent});
