@@ -5,7 +5,7 @@ export const safeCount=value=>Number.isSafeInteger(Number(value))&&Number(value)
 export function applicationKey(key){const raw=atob(key.replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from(raw,x=>x.charCodeAt(0));}
 export function startNotifications({client,app,bridge=false,worker=app==='site'?'/central-sw.js':'/sw.js'}){
  if(!client||!codes[app])return {refresh:async()=>{},dispose(){}};
- let disposed=false,busy=false,epoch=0,uid=null,lastState={count:0,items:[]},registration=null,enabled=false,subscribedFor=null;
+ let disposed=false,busy=false,epoch=0,uid=null,lastState={count:0,items:[]},registration=null,enabled=false,subscribedFor=null,panelRequested=false;
  const originalTitle=document.title;
  const ready=(async()=>{try{const saved=window.ForteNotifications?.restoreSession?.();if(saved){const data=JSON.parse(saved);if(data.project===client.supabaseUrl&&data.app===app)await client.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});}}catch{}})();
  const holder=document.createElement('div');holder.className='forte-notifications';
@@ -26,11 +26,11 @@ export function startNotifications({client,app,bridge=false,worker=app==='site'?
   if(bridge&&window.parent!==window)window.parent.postMessage(message,CENTRAL_ORIGIN);
   try{if(window.opener)window.opener.postMessage(message,CENTRAL_ORIGIN);}catch{}
   try{localStorage.setItem('forte-notifications:'+codes[app],JSON.stringify({...message,user:uid}));}catch{}
-  if(panel&&!panel.hidden)renderPanel();
+  if(panelRequested&&!panel.hidden)renderPanel();
  }
  function renderPanel(message=''){
   panel.replaceChildren();const heading=document.createElement('h2');heading.textContent=titles[app]+' • Avisos';panel.append(heading);
-  const close=document.createElement('button');close.textContent='FECHAR';close.onclick=()=>{panel.hidden=true;button.focus();};panel.append(close);
+  const close=document.createElement('button');close.textContent='FECHAR';close.onclick=()=>{panelRequested=false;panel.hidden=true;button.focus();};panel.append(close);
   const update=document.createElement('button');update.textContent='ATUALIZAR';update.onclick=()=>refresh();panel.append(update);
   if(message){const status=document.createElement('p');status.setAttribute('role','status');status.textContent=message;panel.append(status);}
   if(!lastState.items?.length){const empty=document.createElement('p');empty.textContent='Nenhuma pendência no momento.';panel.append(empty);}
@@ -47,7 +47,7 @@ export function startNotifications({client,app,bridge=false,worker=app==='site'?
   const state=await api('SNAPSHOT');const reg=await getWorker();let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:applicationKey(state.publicKey)});
   await api('SUBSCRIBE',{subscription:sub.toJSON()});subscribedFor=uid+':'+sub.endpoint;enabled=true;await refresh();renderPanel('Notificações ativadas neste dispositivo.');
  }catch(error){renderPanel(error.message||'Não foi possível ativar agora. Tente novamente.');}}
- button.onclick=()=>{if(!enabled&&lastState.count===0)enable();else{panel.hidden=!panel.hidden;if(!panel.hidden)renderPanel();}};
+ button.onclick=()=>{panelRequested=true;panel.hidden=false;renderPanel();};
  async function refresh(){await ready;if(disposed||busy)return;busy=true;const generation=epoch;try{
   const {data:{session}}=await client.auth.getSession();if(disposed||generation!==epoch)return;
   const nextUid=session?.user?.id||null;
