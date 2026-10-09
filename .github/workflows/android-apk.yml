@@ -20,6 +20,7 @@ jobs:
           node tests/export-regression.cjs
           node tests/freight-numeric-simulation.cjs
           node tests/frontend-regression.cjs
+          node tests/payment-regression.cjs
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
