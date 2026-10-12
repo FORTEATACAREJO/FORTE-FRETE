@@ -1,3 +1,4 @@
+import {directoryRows,DRIVER_FIELDS} from './directory.mjs';
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Content-Type':'application/json'};
 const VENDAS_URL='https://gtwecfyffjszghnvtlzr.supabase.co';
@@ -15,14 +16,25 @@ Deno.serve(async(req)=>{
   if(!['MASTER','ADMINISTRADOR'].includes(p.perfil)&&p.permissoes?.vendas!==true&&p.permissoes?.['carga-direta']!==true&&p.permissoes?.['VENDAS E COMPRAS']?.editar!==true)throw new Error('Sem permissão comercial para a integração.');
   const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const body=await req.json();
-  const {data:drivers,error:driversError}=await admin.from('motoristas').select('id,nome,cpf,telefone,rntrc,proprietario_nome,status_cadastro,veiculos_motorista(id,placa,tipo,capacidade_efetiva_t,capacidade_t,ativo,conjunto_principal,componentes,rntrc)').eq('status_cadastro','aprovado');if(driversError)throw driversError;
-  if(body.action==='LIST_DRIVERS')return Response.json({motoristas:(drivers||[]).flatMap(m=>m.veiculos_motorista.filter(v=>v.ativo).map(v=>({id:'frete-'+m.id+'-'+v.id,freteMotoristaId:m.id,freteVeiculoId:v.id,nome:m.nome,cpf:m.cpf,telefone:m.telefone,rntrc:v.rntrc||m.rntrc,proprietario:m.proprietario_nome,statusCadastro:'APROVADO',ativo:true,placa1:v.placa,placa2:v.componentes?.[0]?.placa||'',placa3:v.componentes?.[1]?.placa||'',placa4:v.componentes?.[2]?.placa||'',capacidadeMaximaKg:Number(v.capacidade_efetiva_t||v.capacidade_t||0)*1000,capacidadeAlvoKg:Number(v.capacidade_efetiva_t||v.capacidade_t||0)*1000,origemCadastro:'FORTE FRETE'})))},{headers});
-  if(body.action!=='PUBLISH')throw new Error('Ação inválida.');
+  const {data:drivers,error:driversError}=await admin.from('motoristas').select(DRIVER_FIELDS.replace('componentes,rntrc,proprietario_nome)', 'componentes,rntrc,proprietario_nome,proprietario_cpf_cnpj,favorecido_id)')+',proprietario_cpf_cnpj,documentos_motorista(id,tipo,status)').in('status_cadastro',['aprovado','legado']);if(driversError)throw driversError;
+  if(body.action==='LIST_DRIVERS')return Response.json({motoristas:directoryRows(drivers||[])},{headers});
+  if(!['PUBLISH','DRIVER_DETAILS'].includes(body.action))throw new Error('Ação inválida.');
   const {data:row,error:stateError}=await vendas.from('fc_app_state').select('estado').eq('empresa_id',p.empresa_id).single();if(stateError)throw stateError;
   const state=row.estado,c=(state.cargas||[]).find(x=>x.id===body.cargaId&&x.status!=='CANCELADA');
   if(!c?.numeroPedidoFornecedor||!c.ordemRevisadaEm||!c.itens?.length)throw new Error('Revise e grave a ordem no Forte Vendas antes de enviá-la.');
-  const m=(state.motoristas||[]).find(x=>x.id===c.motoristaId),driver=drivers.find(x=>x.id===m?.freteMotoristaId);if(!driver)throw new Error('Selecione um motorista aprovado e sincronizado do Forte Frete.');
+  const m=(state.motoristas||[]).find(x=>x.id===c.motoristaId),driver=drivers.find(x=>x.id===m?.freteMotoristaId);if(!driver||driver.status_cadastro!=='aprovado')throw new Error('Selecione um motorista aprovado e sincronizado do Forte Frete.');
   const vehicle=driver.veiculos_motorista.find(v=>v.id===m.freteVeiculoId&&v.ativo);if(!vehicle||Number(c.pesoKg)>Number(vehicle.capacidade_efetiva_t||vehicle.capacidade_t||0)*1000)throw new Error('Conjunto inválido ou peso acima da capacidade.');
+  if(body.action==='DRIVER_DETAILS'){
+   if(!['MASTER','ADMINISTRADOR'].includes(p.perfil)&&p.permissoes?.verDadosPagamentoMotorista!==true)return Response.json({error:'Sem permissão para dados de pagamento do motorista.'},{status:403,headers});
+   let payment=null;
+   if(vehicle.favorecido_id){
+    const {data:payee,error}=await admin.from('favorecidos_frete').select('id,nome,cpf_cnpj,ativo').eq('id',vehicle.favorecido_id).single();if(error||!payee?.ativo)throw new Error('Favorecido do conjunto não disponível ou inativo.');
+    const {data:keys,error:keyError}=await admin.from('chaves_pix_frete').select('tipo,chave,principal').eq('favorecido_id',payee.id).eq('ativo',true).order('principal',{ascending:false});if(keyError)throw keyError;const chosen=(keys||[]).find(k=>k.principal)||(keys?.length===1?keys[0]:null);
+    payment={favorecido:payee.nome,documento:payee.cpf_cnpj,chavePix:chosen?.chave||'',tipoPix:chosen?.tipo||''};
+   }else{const {data:legacy,error}=await admin.from('motoristas').select('chave_pix,titular_pix').eq('id',driver.id).single();if(error)throw error;payment={favorecido:legacy.titular_pix||driver.nome,chavePix:legacy.chave_pix||''};}
+   return Response.json({payment},{headers});
+  }
+  if(String(c.regraPallets||'').startsWith('Solicitar')&&!c.liberacaoPalletsFornecedor?.evidencia)throw new Error('Registre a autorização de pallets do fornecedor antes de enviar a ordem.');
   const plateList=[vehicle.placa,...(vehicle.componentes||[]).map(v=>v.placa)].filter(Boolean);if(c.placas?.[0]!==vehicle.placa)throw new Error('Conjunto mudou. Sincronize os motoristas e revise a ordem.');
   let paymentPath=null;
   const doc=(state.documentos||[]).find(d=>d.cargaId===c.id&&d.categoria==='COMPROVANTE FRETE'&&d.validationStatus==='VALIDADO'&&d.storagePath);
