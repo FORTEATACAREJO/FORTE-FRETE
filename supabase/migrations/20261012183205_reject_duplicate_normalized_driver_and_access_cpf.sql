@@ -1,0 +1,1 @@
+create unique index motoristas_cpf_normalized_unique on public.motoristas((regexp_replace(cpf,'[^0-9]','','g'))) where nullif(regexp_replace(cpf,'[^0-9]','','g'),'') is not null;create unique index access_requests_app_cpf_normalized_unique on public.access_requests(app,(regexp_replace(cpf,'[^0-9]','','g'))) where nullif(regexp_replace(cpf,'[^0-9]','','g'),'') is not null;
