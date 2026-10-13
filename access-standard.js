@@ -1,3 +1,4 @@
+import {createDriverOnboarding,onboardingCall} from './driver-onboarding.js';
 import {startNotifications} from "./forte-notifications.js";
 export const normalizeCpf=value=>String(value||"").replace(/\D/g,"");
 export function readLastCpf(app,storage){try{const legacy={fiscal:"forteFiscalLastIdentifier",frete:"forteFreteCpf",financeiro:"forte_financeiro_login"};const v=normalizeCpf(storage.getItem("forte:remembered-cpf:"+app)||storage.getItem("forte:last-cpf")||(legacy[app]&&storage.getItem(legacy[app])));return /^\d{11}$/.test(v)?v:""}catch{return ""}}
@@ -8,6 +9,8 @@ const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 const digits=v=>String(v||"").replace(/\D/g,"");
 export function startAccess({client,app,content,onAllowed,onBlocked}){
 const notificationControl=startNotifications({client,app});
+const driverOnboarding=app==="frete"?createDriverOnboarding(client):null;
+const driverInvite=app==="frete"&&(new URLSearchParams(location.search).get("cadastro")==="motorista"||new URLSearchParams(location.search).has("codigo"));
 let cpfStorage;try{cpfStorage=localStorage}catch{}
 let rememberedCpf=readLastCpf(app,cpfStorage);
 const rememberCpf=value=>{const saved=saveLastCpf(app,value,cpfStorage);if(saved)rememberedCpf=saved};
@@ -18,7 +21,7 @@ const style=document.createElement("style");style.textContent=`
 `;document.head.append(style);
 const mountAdmin=()=>{const host=document.querySelector('[data-forte-top-actions]');if(host&&adminBox.parentElement!==host)host.appendChild(adminBox)};
 const toolbarObserver=new MutationObserver(mountAdmin);toolbarObserver.observe(document.body,{childList:true,subtree:true});mountAdmin();
-let mode="login",notice="",lastStatus=null,disposed=false,checking=false,checkAgain=false,approved=false,mounted=false,resolveReady,queueOpen=false,lastPendingCount=null;
+let mode=driverInvite?"register":"login",notice="",lastStatus=null,disposed=false,checking=false,checkAgain=false,approved=false,mounted=false,resolveReady,queueOpen=false,lastPendingCount=null;
 let recovery=new URLSearchParams(location.search).get("recovery")==="1"||location.hash.includes("type=recovery");
 const ready=new Promise(resolve=>resolveReady=resolve);
 const call=async(action,body={})=>{const r=await accessTimeout(client.functions.invoke("access-standard",{body:{action,...body}}));if(r.error){let msg="Não foi possível concluir. Confira a conexão e tente novamente.";if(r.error.context instanceof Response){try{msg=(await r.error.context.clone().json()).error||msg}catch{}}throw Error(msg)}return r.data};
@@ -30,9 +33,9 @@ mode==="login"?input("cpf","CPF","text",'inputmode="numeric" autocomplete="usern
 mode==="recover"?input("cpf","CPF cadastrado","text",'inputmode="numeric" maxlength="14"')+`<label>Recuperar por<select name="canal"><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option></select></label><label id="fa-contact-label">WhatsApp cadastrado com DDD<input name="contact" type="tel" required></label>`:
 mode==="password"?input("password","Nova senha numérica — mínimo 6 dígitos","password",'inputmode="numeric" minlength="6" pattern="[0-9]{6,}" autocomplete="new-password"')+input("confirm","Confirmar nova senha","password",'inputmode="numeric" minlength="6" pattern="[0-9]{6,}" autocomplete="new-password"'):
 mode==="request"?input("data_nascimento","Data de nascimento","date",`max="${new Date().toISOString().slice(0,10)}"`):"";
-const titles={register:"Primeiro cadastro",login:"Entrar com CPF",recover:"Recuperar senha",password:"Criar nova senha",request:"Solicitar acesso",pending:lastStatus?.status==="RECUSADO"?"Cadastro recusado":"Aguardando análise"};
-const desc=mode==="register"?"Preencha os dados e envie para análise. O acesso será liberado após aprovação do admin ou master.":mode==="pending"?"O acesso à operação permanece bloqueado. Acompanhe aqui a decisão do admin ou master.":mode==="login"?"Usuários antigos podem informar a senha atual para atualizar para o padrão numérico.":mode==="password"?"Crie uma senha com somente números e no mínimo 6 dígitos para continuar.":"";
-box.innerHTML=`<section><h1>${esc(names[app])}</h1><h2>${titles[mode]}</h2><p>${desc}</p>${fields?`<form>${fields}<button type="submit">${({register:"ENVIAR PARA ANÁLISE",login:"ENTRAR",recover:"ENVIAR LINK DE RECUPERAÇÃO",password:"SALVAR NOVA SENHA",request:"ENVIAR SOLICITAÇÃO"})[mode]}</button></form>`:""}<p class="fa-notice" role="status" aria-live="polite">${esc(notice)}</p>${pending?`<button class="fa-link" data-nav="check">ATUALIZAR SITUAÇÃO</button>${lastStatus?.status==="SEM_SOLICITACAO"?'<button class="fa-link" data-nav="request">SOLICITAR ACESSO A ESTE APLICATIVO</button>':""}<button class="fa-link" data-nav="logout">SAIR</button>`:`<button class="fa-link" data-nav="${mode==="register"?"login":"register"}">${mode==="register"?"JÁ TENHO CADASTRO • ENTRAR":"PRIMEIRO CADASTRO"}</button><button class="fa-link" data-nav="recover">ESQUECI MINHA SENHA</button>${mode==="password"?'<button class="fa-link" data-nav="logout">CANCELAR E SAIR</button>':""}`}</section>`;
+const titles={register:driverInvite?"Etapa 1 de 2 — criar acesso":"Primeiro cadastro",login:"Entrar com CPF",recover:"Recuperar senha",password:"Criar nova senha",request:"Solicitar acesso",pending:lastStatus?.status==="RECUSADO"?"Cadastro recusado":"Aguardando análise"};
+const desc=mode==="register"?(driverInvite?"Crie seu login com CPF e senha. Em seguida envie os documentos, dados dos veículos e Pix.":"Preencha os dados e envie para análise. O acesso será liberado após aprovação do admin ou master."):mode==="pending"?"O acesso à operação permanece bloqueado. Acompanhe aqui a decisão do admin ou master.":mode==="login"?"Usuários antigos podem informar a senha atual para atualizar para o padrão numérico.":mode==="password"?"Crie uma senha com somente números e no mínimo 6 dígitos para continuar.":"";
+box.innerHTML=`<section><h1>${esc(names[app])}</h1><h2>${titles[mode]}</h2><p>${desc}</p>${fields?`<form>${fields}<button type="submit">${({register:driverInvite?"CRIAR LOGIN E CONTINUAR":"ENVIAR PARA ANÁLISE",login:"ENTRAR",recover:"ENVIAR LINK DE RECUPERAÇÃO",password:"SALVAR NOVA SENHA",request:"ENVIAR SOLICITAÇÃO"})[mode]}</button></form>`:""}<p class="fa-notice" role="status" aria-live="polite">${esc(notice)}</p>${pending?`<button class="fa-link" data-nav="check">ATUALIZAR SITUAÇÃO</button>${lastStatus?.status==="SEM_SOLICITACAO"?'<button class="fa-link" data-nav="request">SOLICITAR ACESSO A ESTE APLICATIVO</button>':""}<button class="fa-link" data-nav="logout">SAIR</button>`:`<button class="fa-link" data-nav="${mode==="register"?"login":"register"}">${mode==="register"?"JÁ TENHO CADASTRO • ENTRAR":"PRIMEIRO CADASTRO"}</button><button class="fa-link" data-nav="recover">ESQUECI MINHA SENHA</button>${mode==="password"?'<button class="fa-link" data-nav="logout">CANCELAR E SAIR</button>':""}`}</section>`;
 box.querySelectorAll("[data-nav]").forEach(el=>el.onclick=async()=>{if(el.dataset.nav==="logout"){recovery=false;history.replaceState(null,"",location.pathname);await client.auth.signOut();mode="login"}else if(el.dataset.nav==="check"){await check();return}else mode=el.dataset.nav;notice="";draw()});
 const form=box.querySelector("form");if(!form)return;
 if(form.elements.cpf){form.elements.cpf.value=rememberedCpf;form.elements.cpf.oninput=()=>rememberCpf(form.elements.cpf.value);}
@@ -42,7 +45,7 @@ form.onsubmit=async e=>{e.preventDefault();const b=Object.fromEntries(new FormDa
 try{
 if(b.cpf!==undefined){b.cpf=normalizeCpf(b.cpf);rememberCpf(b.cpf);if(!/^\d{11}$/.test(b.cpf))throw Error("Informe CPF com 11 números, com ou sem pontos e traço.");}
 if(mode!=="login"&&b.password&&(!/^\d{6,}$/.test(b.password)||b.confirm&&b.password!==b.confirm))throw Error("Informe senha numérica com no mínimo 6 dígitos e confirme a mesma senha.");
-if(mode==="register"){const r=await call("REGISTER",b);notice=r.message;mode="login";draw()}
+if(mode==="register"){const r=await call("REGISTER",b);notice=r.message;if(driverInvite){const login=await call("LOGIN",{cpf:b.cpf,password:b.password});const auth=await client.auth.setSession({access_token:login.access_token,refresh_token:login.refresh_token});if(auth.error)throw auth.error;await onboardingCall(client,"CLAIM",{codigo:new URLSearchParams(location.search).get("codigo")||""});await check();}else{mode="login";draw()}}
 else if(mode==="login"){const r=await call("LOGIN",b);const auth=await accessTimeout(client.auth.setSession({access_token:r.access_token,refresh_token:r.refresh_token}));if(auth.error)throw Error("Não foi possível abrir a sessão.");rememberCpf(b.cpf);form.elements.password.value="";await check()}
 else if(mode==="request"){notice=(await call("REQUEST",b)).message;await check()}
 else if(mode==="password"){const r=await call("SET_PASSWORD",b);recovery=false;history.replaceState(null,"",location.pathname);if(r.access_token&&r.refresh_token){const auth=await accessTimeout(client.auth.setSession({access_token:r.access_token,refresh_token:r.refresh_token}));if(auth.error)throw Error("Senha salva. Entre com a nova senha.");mode="login";await check()}else{await client.auth.signOut();mode="login";notice=r.message;draw()}}
@@ -76,10 +79,11 @@ try{await notificationControl.ready;const s=await accessTimeout(client.auth.getS
 const r=await call("STATUS");lastStatus=r;if(r.cpf)rememberCpf(r.cpf);
 if(recovery||r.changing){approved=false;onBlocked?.();adminUI(false);if(mode!=="password"||!box.querySelector("form")){mode="password";draw()}return}
 if(r.allowed){if(!approved){if(mounted){location.reload();return}mounted=true;approved=true;box.hidden=true;if(content)content.hidden=false;onAllowed?.(r);resolveReady(r)}adminUI(r.isAdmin);return}
-if(approved){approved=false;onBlocked?.()}adminUI(false);if(["request","recover"].includes(mode)&&box.querySelector("form"))return;mode="pending";notice=r.notifications?.[0]?.message||(r.status==="SEM_SOLICITACAO"?"Seu cadastro ainda não tem autorização para este aplicativo. Solicite a análise.":"Cadastro enviado. Aguarde aprovação do admin ou master.");draw();
+if(approved){approved=false;onBlocked?.()}adminUI(false);if(driverOnboarding&&await driverOnboarding.render(box,{onCheck:check,onLogout:async()=>{await client.auth.signOut();location.replace(location.pathname)}})){return;}if(["request","recover"].includes(mode)&&box.querySelector("form"))return;mode="pending";notice=r.notifications?.[0]?.message||(r.status==="SEM_SOLICITACAO"?"Seu cadastro ainda não tem autorização para este aplicativo. Solicite a análise.":"Cadastro enviado. Aguarde aprovação do admin ou master.");draw();
 }catch(e){if(approved){approved=false;onBlocked?.()}notice=e.message;draw()}finally{checking=false;if(checkAgain){checkAgain=false;setTimeout(check,0)}}
 }
 const sub=client.auth.onAuthStateChange(event=>{if(event==="PASSWORD_RECOVERY")recovery=true;setTimeout(check,0)}).data.subscription;
 const timer=setInterval(()=>{if(document.visibilityState==="visible")check()},15000);draw();check();
 return {ready,check,openActiveUsers(){queueOpen=true;const panel=adminBox.querySelector(".fa-admin-panel");if(!panel)return;panel.hidden=false;return refreshActive()},dispose(){notificationControl.dispose();disposed=true;clearInterval(timer);toolbarObserver.disconnect();sub.unsubscribe();box.remove();adminBox.remove();style.remove()}};
 }
+
