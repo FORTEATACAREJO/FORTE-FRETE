@@ -33,6 +33,7 @@ if(req.method!=="POST"||!validOrigin)return reply({error:"Requisição não perm
 let admin:any,createdId:string|null=null;
 try{
 const b=await req.json(),action=String(b.action||"STATUS"),key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const permittedApps=frete?["frete"]:fiscal?["fiscal"]:["vendas","financeiro","venda-externa","carga-direta","patio","site"];const app=permittedApps.includes(b.app)?b.app:apps[origin];
 admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
 const table=fiscal?"profiles":frete?"usuarios_app":"fc_perfis",idcol=fiscal?"id":"user_id";
 const readProfile=async(uid:string)=>{const r=await admin.from(table).select("*").eq(idcol,uid).maybeSingle();if(r.error)throw Error("Falha ao conferir cadastro.");return r.data};
@@ -165,13 +166,14 @@ if(!isAdmin)return reply({error:"Somente admin ou master aprovado pode analisar.
 const reviewed=await admin.rpc("access_review_with_role",{p_request:b.id,p_actor:uid,p_decision:b.decision,p_role:typeof b.role==="string"?b.role:null,p_units:Array.isArray(b.units)?b.units:b.unit?[b.unit]:[],p_reason:b.reason||null});
 if(reviewed.error)return reply({error:reviewed.error.message||"Não foi possível registrar a decisão."},400);
 let metadataPending=false;
-if(b.decision==="APROVADO"){
+if(b.decision==="APROVADO"&&reviewed.data.status==="APROVADO"){
  const request=await admin.from("access_requests").select("user_id").eq("id",b.id).single();
  const target=request.data?.user_id?await admin.auth.admin.getUserById(request.data.user_id):null;
  if(request.error||target?.error||!target?.data.user)metadataPending=true;
  else{const synced=await admin.auth.admin.updateUserById(target.data.user.id,{app_metadata:{...target.data.user.app_metadata,role:reviewed.data.role}});metadataPending=Boolean(synced.error)}
  if(metadataPending)await audit("CADASTRO_METADATA_PENDENTE",uid);
 }
+if(reviewed.data.status==="DOCUMENTS_REQUIRED"){await audit("DOCUMENTOS_MOTORISTA_SOLICITADOS",uid);return reply(reviewed.data);}
 await audit("CADASTRO_"+b.decision,uid);return reply({message:metadataPending?"Acesso aprovado e perfil salvo. A sincronização dos dados de autenticação precisa ser conferida pelo administrador.":b.decision==="APROVADO"?"Acesso aprovado e perfil salvo. O usuário já pode entrar neste aplicativo.":"Acesso recusado. O usuário verá o motivo na sua tela de acesso.",...reviewed.data});
 }
 if(action!=="STATUS")return reply({error:"Ação inválida."},400);
@@ -184,3 +186,4 @@ if(admin&&createdId){await admin.from("access_requests").delete().eq("user_id",c
 const message=error instanceof Error?error.message:"Não foi possível concluir. Tente novamente.";return reply({error:message},/^(Informe|CPF|E-mail|A senha)/.test(message)?400:503);
 }
 });
+
