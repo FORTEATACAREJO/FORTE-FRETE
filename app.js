@@ -150,7 +150,7 @@ saveCad=function(){
  if(step===4){cad.veiculoDados=readFields($('#cadStep > .formgrid'));cad.componentes=[...document.querySelectorAll('[data-cad-component]')].map(el=>({...readFields(el),papel:el.dataset.cadComponent})).filter(c=>c.placa)}
  baseSaveCad();
 };
-s.auth.onAuthStateChange((evento,x)=>{session=x;if(evento==='PASSWORD_RECOVERY'||(x&&recuperacaoSolicitada))return show(recuperacao);if(x)setTimeout(()=>boot().catch(()=>msg('Não foi possível carregar o acesso. Tente novamente.')),0);else show(login)});boot();
+s.auth.onAuthStateChange((evento,x)=>{const previousUser=session?.user?.id;session=x;if(evento==='PASSWORD_RECOVERY'||(x&&recuperacaoSolicitada))return show(recuperacao);if(evento==='TOKEN_REFRESHED'||evento==='USER_UPDATED'||evento==='INITIAL_SESSION')return;if(evento==='SIGNED_IN'&&x&&previousUser===x.user.id)return;if(x)setTimeout(()=>boot().catch(()=>msg('Não foi possível carregar o acesso. Tente novamente.')),0);else show(login)});boot();
 
 function exportView(){view.innerHTML='<h2>Exportar cadastros</h2><section class="card"><p>Gere um arquivo com motoristas, veículos, favorecidos, chaves Pix, rotas e documentos anexados.</p><button class="btn" id="exportCadastros">EXPORTAR CADASTROS</button><p role="status" id="exportStatus"></p></section>';$('#exportCadastros').onclick=async()=>{const button=$('#exportCadastros'),status=$('#exportStatus');button.disabled=true;try{const r=await exportCadastros(s,t=>status.textContent=t);status.textContent=`Arquivo gerado: ${r.motoristas} motoristas, ${r.veiculos} veículos e ${r.anexos} documentos.`}catch(e){status.textContent=e.message||'Não foi possível exportar agora.'}finally{button.disabled=false}}}
 
