@@ -1,0 +1,41 @@
+name: ForteFrete
+options:
+  bundleIdPrefix: br.com.forteatacarejo
+  deploymentTarget:
+    iOS: '15.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    MARKETING_VERSION: '1.2.0'
+    CURRENT_PROJECT_VERSION: '5'
+    CODE_SIGN_STYLE: Automatic
+    TARGETED_DEVICE_FAMILY: '1,2'
+targets:
+  ForteFrete:
+    type: application
+    platform: iOS
+    sources:
+      - path: ForteFrete
+        excludes: [Info.plist]
+    info:
+      path: ForteFrete/Info.plist
+      properties:
+        CFBundleDisplayName: Forte Frete
+        CFBundleDevelopmentRegion: pt_BR
+        CFBundleLocalizations: [pt-BR]
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        NSCameraUsageDescription: Permite fotografar documentos do motorista e do veículo quando você escolher a câmera para anexar um documento.
+        NSPhotoLibraryUsageDescription: Permite selecionar fotos de documentos para enviar no cadastro do motorista ou do veículo.
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+        UISupportedInterfaceOrientations~ipad: [UIInterfaceOrientationPortrait, UIInterfaceOrientationPortraitUpsideDown, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: br.com.forteatacarejo.frete
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+schemes:
+  ForteFrete:
+    build:
+      targets:
+        ForteFrete: all

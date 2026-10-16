@@ -1,0 +1,23 @@
+begin;
+insert into auth.users(id,email) values ('de1e7100-0000-4000-8000-000000000001','store-test-a@example.invalid'),('de1e7100-0000-4000-8000-000000000002','store-test-b@example.invalid');
+select set_config('request.jwt.claim.sub','de1e7100-0000-4000-8000-000000000001',true);
+set local role authenticated;
+insert into public.frete_atendimento(tipo,mensagem) values ('SUPORTE','Teste sintético com rollback'),('EXCLUSAO','Teste sintético com rollback');
+do $$ begin
+ if (select count(*) from public.frete_atendimento)<>2 then raise exception 'Falha: titular não consulta os próprios protocolos'; end if;
+ begin insert into public.frete_atendimento(tipo,mensagem,user_id) values ('SUPORTE','Tentativa proibida','de1e7100-0000-4000-8000-000000000002'); raise exception 'Falha: aceitou identidade de terceiro'; exception when insufficient_privilege then null; end;
+ begin insert into public.frete_atendimento(tipo,mensagem,status) values ('SUPORTE','Tentativa proibida','RESPONDIDO'); raise exception 'Falha: aceitou resposta forjada'; exception when insufficient_privilege then null; end;
+ begin insert into public.frete_atendimento(tipo,mensagem) values ('EXCLUSAO','Duplicada'); raise exception 'Falha: aceitou exclusão duplicada'; exception when unique_violation then null; end;
+ update public.frete_atendimento set status='RESPONDIDO';
+ if found then raise exception 'Falha: usuário respondeu como admin'; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','de1e7100-0000-4000-8000-000000000002',true);
+set local role authenticated;
+do $$ begin if (select count(*) from public.frete_atendimento)<>0 then raise exception 'Falha: usuário acessa dados alheios'; end if; end $$;
+reset role;
+set local role anon;
+do $$ begin begin perform * from public.frete_atendimento; raise exception 'Falha: consulta anônima permitida'; exception when insufficient_privilege then null; end; end $$;
+reset role;
+select 'PASS: isolamento, campos restritos, antduplicação e bloqueio anônimo; sem dados persistidos' as result;
+rollback;

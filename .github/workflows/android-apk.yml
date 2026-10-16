@@ -2,7 +2,9 @@ name: Android APK and Store Build
 on:
   push:
     branches: [main]
-    paths: ['android-apk/**', 'favicon.svg', '.github/workflows/android-apk.yml', 'tests/**', 'supabase/functions/**', '*.js', 'index.html']
+    paths: ['android-apk/**', 'favicon.svg', '.github/workflows/android-apk.yml', 'tests/**', 'supabase/functions/**', '*.js', 'index.html', 'icon-*.png', 'scripts/mobile-assets.py', 'store/**']
+  pull_request:
+    paths: ['android-apk/**', '*.js', '*.html', 'tests/**', 'icon-*.png', '.github/workflows/android-apk.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -21,6 +23,9 @@ jobs:
           node tests/freight-numeric-simulation.cjs
           node tests/frontend-regression.cjs
           node tests/payment-regression.cjs
+          node tests/build-dependencies.cjs
+          node --test tests/driver-referrals.mjs
+          npm run build
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -31,9 +36,7 @@ jobs:
       - name: Prepare official launcher icon
         run: |
           mkdir -p android-apk/app/src/main/res/drawable
-          sudo apt-get update
-          sudo apt-get install -y imagemagick
-          convert -background none favicon.svg -resize 512x512 android-apk/app/src/main/res/drawable/app_icon.png
+          cp icon-512.png android-apk/app/src/main/res/drawable/app_icon.png
       - name: Build installable test APK
         working-directory: android-apk
         run: gradle :app:assembleDebug --no-daemon --stacktrace
