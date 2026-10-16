@@ -102,3 +102,15 @@ Nenhum item pendente foi considerado aprovado por inferência. Esta entrega perm
 - [CI de privacidade, PostgreSQL 17 e navegador — concluído com sucesso](https://github.com/FORTEATACAREJO/FORTE-FRETE/actions/runs/38934229667), commit de código `56b4bdcf67c1b60c1d4b84d0b9fd1b3635b6cf69`.
 
 Os quatro PRs são rascunhos e não foram mesclados. A existência desses PRs não significa liberação, integração externa homologada ou autorização para produção.
+
+## Continuidade autorizada — atualização técnica
+
+Após a autorização “Pode fazer tudo”, o visual aprovado foi aplicado à aplicação candidata do Forte Frete. Novos testes exercitam a página integrada com Master e motorista, cabeçalho compacto, navegação, detalhe da oferta, busca e envio privado em 360/390/430 px.
+
+Foram implementados os dois bloqueios de código antes registrados: recebimento idempotente do aceite no Vendas com vínculo e retorno do pedido; e projeção financeira por perfil no servidor, incluindo preservação dos saldos nas gravações operacionais. O comprovante de frete passa a exigir autorização Master no Vendas. O Frete consulta a autorização e não registra pagamentos pelo navegador. O cache do Vendas deixa de guardar os registros financeiros completos.
+
+Validação local atual: 52 verificações no Frete, 141 testes centrais no Vendas, 105 simulações de conta corrente e o restante das regras numéricas do build; testes de navegador dos módulos e da página integrada. Os testes anteriores de concorrência em PostgreSQL 17 permanecem como evidência do aceite; o CI será repetido para o candidato atualizado.
+
+Essas implementações substituem as pendências de código dos itens 1, 3 e 4 acima. Permanecem necessárias a homologação conectada e a implantação coordenada. O relatório anterior não deve ser lido como prova de que integrações externas, lojas, bancos ou Fiscal foram homologados. O plano atualizado de liberação está no PR do Vendas em `docs/ROLLOUT_FRETE_FINANCEIRO.md`.
+
+A restrição do motorista agora também cobre os cadastros próprios após a aprovação: somente a identidade mínima é projetada; primeiro acesso e correção mantêm os dados próprios necessários. O contador de avisos operacionais é atualizado no aplicativo sem encerrar a sessão.

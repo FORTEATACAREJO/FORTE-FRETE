@@ -22,3 +22,5 @@ __pycache__/
 !store/android-upload-key.enc
 
 prototypes/screens/
+
+prototypes/screens-integradas/

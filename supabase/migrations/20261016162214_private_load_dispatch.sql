@@ -61,6 +61,18 @@ create function public.frete_ofertar(p_carga_id uuid,p_motorista_id uuid,p_modo 
 revoke all on function public.frete_ofertar(uuid,uuid,text) from public,anon;
 grant execute on function public.frete_ofertar(uuid,uuid,text) to authenticated;
 
+create function private.frete_previa(p_carga uuid,p_motorista uuid) returns jsonb language plpgsql stable security definer set search_path='' as $$
+declare c public.cargas;cap numeric;unit numeric;qtd bigint;peso numeric;
+begin
+ select * into c from public.cargas where id=p_carga;
+ select coalesce(v.capacidade_efetiva_t,v.capacidade_t) into cap from public.veiculos_motorista v where v.motorista_id=p_motorista and v.ativo and coalesce(v.capacidade_efetiva_t,v.capacidade_t,0)>=c.peso_min_t order by v.conjunto_principal desc,v.id limit 1;
+ unit:=coalesce(c.peso_unitario_kg,50);
+ if cap is null or cap::text in ('NaN','Infinity','-Infinity') or unit<=0 or unit::text in ('NaN','Infinity','-Infinity') or c.peso_max_t::text in ('NaN','Infinity','-Infinity') or c.frete_por_t is null or c.frete_por_t<0 or c.frete_por_t::text in ('NaN','Infinity','-Infinity') then return '{}';end if;
+ qtd:=floor(least(cap,c.peso_max_t)*1000/unit);peso:=qtd*unit/1000;
+ if qtd<=0 or peso<c.peso_min_t then return '{}';end if;
+ return jsonb_build_object('peso_estimado_t',peso,'quantidade_estimada',qtd,'frete_estimado',round(peso*c.frete_por_t,2),'placa', (select placa from public.veiculos_motorista where motorista_id=p_motorista and ativo and coalesce(capacidade_efetiva_t,capacidade_t,0)>=c.peso_min_t order by conjunto_principal desc,id limit 1));
+end $$;
+revoke all on function private.frete_previa(uuid,uuid) from public,anon,authenticated;
 create function private.frete_operacao(p_acao text,p_id uuid) returns jsonb language plpgsql security definer set search_path='' as $$
 declare m public.motoristas;c public.cargas;v public.veiculos_motorista;t public.viagens;i public.interesses_carga;result jsonb; cap numeric;peso numeric;unit numeric;qtd integer;total numeric;
 begin
@@ -68,10 +80,10 @@ begin
  select * into m from public.motoristas where auth_user_id=auth.uid() and status_cadastro='aprovado' for update;
  if not found then raise exception 'Acesso não autorizado.' using errcode='42501';end if;
  if p_acao='CARGAS' then
- select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'origem',x.origem_cidade||'/'||x.origem_uf,'destino',x.destino_cidade||'/'||x.destino_uf,'produto',x.produto,'peso_min_t',x.peso_min_t,'peso_max_t',x.peso_max_t,'frete_por_t',x.frete_por_t,'data_carregamento',x.data_carregamento,'privada',x.audiencia='privada') order by x.created_at desc),'[]') into result from public.cargas x where x.status='publicada' and x.oferta_status='pendente' and (x.audiencia='publica' or x.destinatario_motorista_id=m.id) and private.frete_elegivel(x.id,m.id);
+ select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'origem',x.origem_cidade||'/'||x.origem_uf,'destino',x.destino_cidade||'/'||x.destino_uf,'produto',x.produto,'peso_min_t',x.peso_min_t,'peso_max_t',x.peso_max_t,'frete_por_t',x.frete_por_t,'data_carregamento',x.data_carregamento,'privada',x.audiencia='privada')||private.frete_previa(x.id,m.id) order by x.created_at desc),'[]') into result from public.cargas x where x.status='publicada' and x.oferta_status='pendente' and (x.audiencia='publica' or x.destinatario_motorista_id=m.id) and private.frete_elegivel(x.id,m.id);
  return result;
  elsif p_acao='VIAGENS' then
- select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'origem',x.origem,'destino',x.destino,'produto',x.produto,'peso_t',x.peso_t,'frete_total',x.frete_total,'status',x.status,'pagamento_status',x.pagamento_status,'ordem_enviada_em',x.ordem_enviada_em,'carregamento_iniciado_em',x.carregamento_iniciado_em,'viagem_iniciada_em',x.viagem_iniciada_em,'entrega_concluida_em',x.entrega_concluida_em,'pagamento_comprovante_path',case when x.pagamento_status='pago' and x.comprovante_autorizado_em is not null then x.pagamento_comprovante_path end) order by x.created_at desc),'[]') into result from public.viagens x where x.motorista_id=m.id;
+ select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'origem',x.origem,'destino',x.destino,'produto',x.produto,'peso_t',x.peso_t,'frete_total',x.frete_total,'status',x.status,'pagamento_status',x.pagamento_status,'ordem_enviada_em',x.ordem_enviada_em,'carregamento_iniciado_em',x.carregamento_iniciado_em,'viagem_iniciada_em',x.viagem_iniciada_em,'entrega_concluida_em',x.entrega_concluida_em,'pagamento_comprovante_bucket',x.pagamento_comprovante_bucket,'pagamento_comprovante_path',case when x.pagamento_status='pago' and x.comprovante_autorizado_em is not null then x.pagamento_comprovante_path end) order by x.created_at desc),'[]') into result from public.viagens x where x.motorista_id=m.id;
  return result;
  elsif p_acao='ORDENS' then
  select coalesce(jsonb_agg(jsonb_build_object('id',x.id,'snapshot',jsonb_build_object('origem',x.snapshot->>'origem','destino',x.snapshot->>'destino','dataCarregamento',x.snapshot->>'dataCarregamento','placas',x.snapshot->'placas','pesoKg',x.snapshot->'pesoKg','freteValor',x.snapshot->'freteValor'),'pagamento_status',x.pagamento_status,'documento_frete_path',case when x.pagamento_status like 'PAGO%' then x.documento_frete_path end) order by x.updated_at desc),'[]') into result from public.vendas_ordens x where x.motorista_id=m.id;
@@ -84,7 +96,7 @@ begin
  elsif p_acao='INICIAR_VIAGEM' and t.status='em_carregamento' then
  update public.viagens set status='em_viagem',viagem_iniciada_em=now() where id=t.id;
  elsif p_acao='CONCLUIR_VIAGEM' and t.status in ('em_carregamento','em_viagem') then
- update public.viagens set status='concluida',entrega_concluida_em=now(),concluida_em=now(),pagamento_status='aguardando_pagamento' where id=t.id;
+ update public.viagens set status=case when pagamento_status='pago' then 'encerrada' else 'concluida' end,entrega_concluida_em=now(),concluida_em=now(),pagamento_status=case when pagamento_status='pago' then 'pago' else 'aguardando_pagamento' end where id=t.id;
  else raise exception 'Transição não permitida.' using errcode='40001';end if;
  return jsonb_build_object('ok',true);
  end if;
