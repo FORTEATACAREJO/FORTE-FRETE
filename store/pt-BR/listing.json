@@ -1,0 +1,14 @@
+{
+  "name": "Forte Frete",
+  "androidPackage": "br.com.forteatacarejo.frete",
+  "iosBundleIdentifier": "br.com.forteatacarejo.frete",
+  "version": "1.2.0",
+  "shortDescription": "Cargas, viagens, documentos e pagamentos para motoristas da Forte Atacarejo.",
+  "subtitle": "Cargas, viagens e pagamentos",
+  "fullDescription": "O Forte Frete reúne a operação de transporte da Forte Atacarejo em um só lugar.\n\n• Faça seu cadastro e envie os documentos solicitados.\n• Acompanhe a análise e a liberação do seu acesso.\n• Consulte cargas disponíveis e os dados do carregamento.\n• Acompanhe suas viagens, ordens e situação dos pagamentos.\n• Consulte os comprovantes disponibilizados pela administração.\n\nO acesso operacional depende de cadastro e aprovação pela Forte Atacarejo. A disponibilidade de cargas varia conforme a operação. É necessária conexão com a internet.\n\nOs valores e comprovantes exibidos são informações da operação de frete. O aplicativo não é uma conta bancária nem oferece crédito.",
+  "privacyPolicyUrl": "https://forte-frete.onrender.com/privacidade.html",
+  "supportUrl": "https://forte-frete.onrender.com/suporte.html",
+  "deletionUrl": "https://forte-frete.onrender.com/excluir-conta.html",
+  "categoryProposal": {"googlePlay": "BUSINESS", "appStore": "BUSINESS"},
+  "status": "Rascunho técnico: validar funções em dispositivo, suporte e exclusão antes de submeter."
+}

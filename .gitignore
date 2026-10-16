@@ -1,0 +1,17 @@
+dist/
+build/
+node_modules/
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+.env*
+android-apk/.gradle/
+android-apk/app/build/
+android-apk/build/
+android-apk/local.properties
+ios/*.xcodeproj/
+ios/ForteFrete/Info.plist
+.DS_Store
+
+supabase/.temp/

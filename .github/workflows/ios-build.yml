@@ -1,0 +1,52 @@
+name: iOS - Build sem pagamento
+on:
+  push:
+    branches: [main]
+    paths: ['ios/**', 'scripts/mobile-assets.py', '.github/workflows/ios-build.yml']
+  pull_request:
+    paths: ['ios/**', 'scripts/mobile-assets.py', '.github/workflows/ios-build.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  unsigned-build:
+    runs-on: macos-26
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ferramentas
+        run: |
+          xcodebuild -version
+          brew install xcodegen
+          xcodegen --version
+      - name: Gerar projeto Xcode
+        run: xcodegen generate --spec ios/project.yml
+      - name: Compilar para simulador
+        run: |
+          xcodebuild -project ios/ForteFrete.xcodeproj -scheme ForteFrete -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build/ios-simulator CODE_SIGNING_ALLOWED=NO build
+          ditto -c -k --sequesterRsrc --keepParent build/ios-simulator/Build/Products/Debug-iphonesimulator/ForteFrete.app build/ForteFrete-Simulador.zip
+      - name: Abrir aplicativo no simulador e capturar tela de teste
+        run: |
+          device_id=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for group in d["devices"].values() for x in group if "iPhone" in x["name"]))')
+          xcrun simctl boot "$device_id"
+          xcrun simctl bootstatus "$device_id" -b
+          xcrun simctl install "$device_id" build/ios-simulator/Build/Products/Debug-iphonesimulator/ForteFrete.app
+          xcrun simctl launch "$device_id" br.com.forteatacarejo.frete
+          sleep 8
+          xcrun simctl io "$device_id" screenshot build/ForteFrete-iOS-Tela-Teste.png
+      - name: Validar compilação para dispositivo sem assinatura
+        run: |
+          xcodebuild -project ios/ForteFrete.xcodeproj -scheme ForteFrete -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ios-device CODE_SIGNING_ALLOWED=NO build
+          ditto -c -k --sequesterRsrc --keepParent build/ios-device/Build/Products/Release-iphoneos/ForteFrete.app build/ForteFrete-iOS-Sem-Assinatura.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ForteFrete-iOS-Validacao-Sem-Assinatura
+          path: |
+            build/ForteFrete-iOS-Tela-Teste.png
+            build/ForteFrete-Simulador.zip
+            build/ForteFrete-iOS-Sem-Assinatura.zip
+          if-no-files-found: error
+      - name: Status honesto
+        run: |
+          echo '### Compilação sem conta paga' >> "$GITHUB_STEP_SUMMARY"
+          echo 'App de simulador e compilação de dispositivo sem assinatura. Não são IPA de distribuição e não podem ser enviados ao TestFlight/App Store. Assinatura, validação em dispositivo e envio ficam para a conta Apple Developer.' >> "$GITHUB_STEP_SUMMARY"
