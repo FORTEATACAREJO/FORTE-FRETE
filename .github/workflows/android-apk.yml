@@ -2,9 +2,9 @@ name: Android APK and Store Build
 on:
   push:
     branches: [main]
-    paths: ['android-apk/**', 'favicon.svg', '.github/workflows/android-apk.yml', 'tests/**', 'supabase/functions/**', '*.js', 'index.html', 'icon-*.png', 'scripts/mobile-assets.py', 'store/**']
+    paths: ['android-apk/**', 'favicon.svg', '.github/workflows/android-apk.yml', 'tests/**', 'supabase/functions/**', '*.js', 'index.html', 'icon-*.png', 'scripts/mobile-assets.py', 'scripts/android-*.py', 'store/**']
   pull_request:
-    paths: ['android-apk/**', '*.js', '*.html', 'tests/**', 'icon-*.png', '.github/workflows/android-apk.yml']
+    paths: ['android-apk/**', '*.js', '*.html', 'tests/**', 'icon-*.png', 'scripts/android-*.py', '.github/workflows/android-apk.yml']
   workflow_dispatch:
 permissions:
   contents: read

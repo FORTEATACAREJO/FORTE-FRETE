@@ -31,6 +31,9 @@ public class MainActivity extends Activity {
    return insets;
   });
   setContentView(root);
+  int systemBars = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+  if (android.os.Build.VERSION.SDK_INT >= 26) systemBars |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+  getWindow().getDecorView().setSystemUiVisibility(systemBars);
   web = new WebView(this);
   root.addView(web, new FrameLayout.LayoutParams(-1, -1));
   errorPanel = new LinearLayout(this);
