@@ -41,7 +41,9 @@ Migração candidata: `supabase/migrations/20261016162214_private_load_dispatch.
 
 ## Financeiro — candidato complementar no Forte Vendas
 
-Branch separada com guarda Master no grupo Financeiro e no componente, helper de banco baseado no perfil Master aprovado e remoção do atalho de Administrador na validação de alterações financeiras. Migração preparada, não aplicada: `20261016163637_financeiro_master_interno.sql`.
+Branch separada com guarda Master no grupo Financeiro e no componente, helper de banco baseado no perfil Master aprovado e remoção do atalho de Administrador na validação de alterações financeiras. A entrada do Financeiro legado recebeu candidato de redirecionamento, sem formulário independente; a Central recebeu candidato com os cinco acessos aprovados. Ambos aguardam revisão e não foram publicados.
+
+Migração preparada, não aplicada: `20261016163637_financeiro_master_interno.sql`.
 
 **Bloqueio:** o JSON compartilhado `fc_app_state` ainda exige projeção/segregação financeira de leitura antes de afirmar isolamento completo do Financeiro. Ocultar a tela não resolve esse acesso. Foi preparado redirecionamento do Financeiro legado para o módulo interno; o candidato também depende dessa segregação antes da liberação. Essa etapa não foi declarada concluída nem liberada para produção.
 
@@ -58,9 +60,9 @@ Protótipo HTML navegável e offline, com dados claramente fictícios. Gestão: 
 | Cálculos | Incluído no total | 36/38/38,5/52 t, capacidade de 60 t limitada a 52 t, unidade de 25/50 kg, arredondamento, tarifa zero, negativos e valores não finitos. |
 | Comprovantes e Storage | Incluído no total | Documento alheio e sem autorização bloqueados; motorista não anexa comprovante; snapshot de fornecedor excluído. |
 | Navegador dos módulos funcionais | Passou | Chromium headless: oferta privada, falha preservando rascunho, repetição sem segunda criação, botões de viagem, erro de rede, conteúdo hostil escapado e perfil mínimo. API simulada; não é homologação externa. |
-| Protótipo | Passou | 14 telas capturadas, navegação, recusa privada, publicação explícita, larguras 360/390/430 px, sem erros de JavaScript ou rolagem horizontal. |
+| Protótipo | Passou localmente e no CI | 14 telas capturadas, navegação, recusa privada, publicação explícita, larguras 360/390/430 px, sem erros de JavaScript ou rolagem horizontal. |
 | Financeiro Master + regressões Vendas | Passou: 1 teste específico, 125 testes centrais, 105 simulações de conta corrente e regras numéricas do build | Master aprovado, outros perfis com permissão financeira, troca de senha, inatividade e empresa divergente. |
-| Concorrência PostgreSQL com conexões independentes | Workflow preparado | O bloqueio transacional foi exercitado em sequência no PGlite. A prova de corrida real exige o job PostgreSQL 17; não confundir com teste sequencial. |
+| Concorrência PostgreSQL com conexões independentes | Passou no CI PostgreSQL 17 | Duas conexões concorrem pela mesma carga: um vencedor, uma viagem, um interesse e um registro de integração. Job de revisão concluído com sucesso. |
 | Android/iPhone reais, lojas e provedores externos | Não executado nesta revisão | Não houve build assinado ou publicação nova. Homologação autenticada em dispositivos reais permanece necessária. |
 
 Os testes de assinatura e o histórico dos builds anteriores permanecem separados desta revisão: não constituem prova dos novos fluxos autenticados.
@@ -90,3 +92,13 @@ Os testes de assinatura e o histórico dos builds anteriores permanecem separado
 10. Obter autorização explícita antes de mesclar, aplicar migrações, publicar frontend/Edge Functions, alterar serviços ou enviar às lojas.
 
 Nenhum item pendente foi considerado aprovado por inferência. Esta entrega permite revisar as telas e o candidato de código, com bloqueios explícitos para evitar uma liberação incompleta.
+
+## Código e evidências de revisão
+
+- [Forte Frete — rascunho PR #14](https://github.com/FORTEATACAREJO/FORTE-FRETE/pull/14)
+- [Forte Vendas / Master — rascunho PR #26](https://github.com/FORTEATACAREJO/FORTE-VENDAS/pull/26)
+- [Central com cinco acessos — rascunho PR #2](https://github.com/FORTEATACAREJO/SITE-FORTE-ATACAREJO/pull/2)
+- [Entrada do Financeiro legado — rascunho PR #4](https://github.com/FORTEATACAREJO/FORTE-FINANCEIRO/pull/4)
+- [CI de privacidade, PostgreSQL 17 e navegador — concluído com sucesso](https://github.com/FORTEATACAREJO/FORTE-FRETE/actions/runs/38934229667), commit de código `56b4bdcf67c1b60c1d4b84d0b9fd1b3635b6cf69`.
+
+Os quatro PRs são rascunhos e não foram mesclados. A existência desses PRs não significa liberação, integração externa homologada ou autorização para produção.
