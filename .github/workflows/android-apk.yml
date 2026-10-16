@@ -16,6 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24.19.0'
+      - run: npm ci
       - name: Run regression tests
         run: |
           node tests/auth-regression.cjs
@@ -52,6 +53,7 @@ jobs:
           path: android-apk/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Prepare store signing
+        if: github.event_name != 'pull_request'
         id: signing
         env:
           FORTE_KEYSTORE_BASE64: ${{ secrets.FORTE_KEYSTORE_BASE64 }}
@@ -71,7 +73,7 @@ jobs:
       - name: Upload release bundle
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ steps.signing.outputs.artifact }}
+          name: ${{ steps.signing.outputs.artifact || 'ForteFrete-AAB-Teste-Sem-Assinatura' }}
           path: android-apk/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
       - name: Remove signing file
