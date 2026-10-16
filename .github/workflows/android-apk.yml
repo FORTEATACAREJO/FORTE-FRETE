@@ -125,7 +125,6 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-boot-timeout: 300
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none -dns-server 8.8.8.8,8.8.4.4
           disable-animations: true
           script: python3 scripts/android-launch-test.py android-test-apk/app-debug.apk
       - name: Upload initial Android screen and diagnostics
