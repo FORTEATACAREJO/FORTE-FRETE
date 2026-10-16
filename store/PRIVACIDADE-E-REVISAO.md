@@ -37,7 +37,7 @@ Criar conta exclusiva de motorista com dados fictícios, aprovação e conteúdo
 ## Pendências que não podem ser consideradas concluídas automaticamente
 
 1. Completar testes dos fluxos autenticados e em aparelhos físicos. As compilações e os testes de abertura inicial estão registrados abaixo; não equivalem a homologação completa.
-2. Configurar a assinatura Android pelo fluxo de celular abaixo (um Secret e backup criptografado) ou pelo procedimento antigo de quatro Secrets. Guardar uma cópia do backup e a senha separadamente. Não publicar chave privada ou senha em texto aberto, logs ou artifacts.
+2. Assinatura Android preparada e validada conforme registro abaixo. Manter o backup criptografado e a senha guardados separadamente. Não substituir a chave já criada nem publicar chave privada ou senha em texto aberto, logs ou artifacts.
 3. Confirmar canal público de suporte e processo completo de exclusão, incluindo autenticação indisponível, dados relacionados, arquivos e cópias de segurança. O atendimento deve diferenciar retenção necessária de exclusão efetiva e comunicar o resultado. A aprovação da Apple exige que a experiência de exclusão atenda às regras aplicáveis; uma fila isolada não atesta conformidade.
 4. Capturar imagens reais e concluir as respostas de privacidade, faixa etária e conteúdo.
 5. Confirmar titularidade/identificação das contas empresariais e eventual D-U-N-S.
@@ -63,7 +63,7 @@ Criar conta exclusiva de motorista com dados fictícios, aprovação e conteúdo
 
 ## Assinatura Android pelo celular
 
-O workflow manual **Preparar chave Android pelo celular** evita instalar ferramentas no telefone. Não cria contas de lojas, não cobra e não submete aplicativos. Está preparado, mas nenhuma chave definitiva foi gerada por esta etapa.
+O workflow manual **Preparar chave Android pelo celular** evita instalar ferramentas no telefone. Não cria contas de lojas, não cobra e não submete aplicativos. A primeira chave foi gerada em 16/10/2026 e o AAB assinado foi validado conforme o registro abaixo. Não executar a geração novamente.
 
 1. No GitHub do Forte Frete, criar um **Repository Secret** chamado `FORTE_SIGNING_BACKUP_PASSWORD`. Usar senha forte e exclusiva de 32 a 256 caracteres, com pelo menos três entre maiúsculas, minúsculas, números e símbolos, sem repetições simples nem quebras de linha. Guardá-la separadamente em um gerenciador de senhas. Não enviar a senha por chat nem colocá-la em Variables, código ou inputs de workflow.
 2. Em Actions, abrir **Preparar chave Android pelo celular**, escolher main e confirmar a criação da primeira chave. Somente o titular do repositório pode iniciar a geração. A etapa manual tem permissão de escrita apenas para guardar o resultado nesse repositório; os builds normais continuam com leitura.
@@ -85,7 +85,16 @@ Referência oficial do modelo de arquivo cifrado com senha em Secret: https://do
 4. O programa se recusa a sobrescrever backup ou gerar outra chave se Secrets de assinatura já existirem. Em falha parcial, restaurar o mesmo backup com `--restore /caminho/ForteFrete-upload-key.enc`.
 5. Executar o workflow Android e verificar `ForteFrete-PlayStore-AAB-Assinado`. Não enviar o AAB sem assinatura.
 
-Acesso ao repositório confirmado na conta FORTEATACAREJO. A página de Actions Secrets foi conferida e ainda não contém Secrets de repositório ou de ambiente. O navegador está autenticado; o GitHub CLI continua sem autenticação e o conector não oferece gravação de Secrets. A assinatura depende da entrada manual do Secret pelo titular e da execução/validação do novo fluxo, ou do procedimento alternativo de quatro Secrets. Nenhuma chave de produção foi criada ou enviada. Não houve pagamento nem submissão às lojas.
+## Assinatura concluída em 16/10/2026
+
+O titular cadastrou `FORTE_SIGNING_BACKUP_PASSWORD`; somente a existência do Secret foi conferida, sem ler seu valor. A execução 38920972495 criou a chave e salvou apenas o backup cifrado e o certificado público no commit ba625ddd4f1a16469802675f97e6a3cffb7c36cc. Uma cópia de recuperação foi guardada separadamente, sem senha. Não configurar o método antigo nem gerar outra chave para este aplicativo.
+
+A execução Android 38921256393 gerou o artifact 12053789879, **ForteFrete-PlayStore-AAB-Assinado**. A compilação e a verificação do jarsigner passaram. O AAB foi baixado para uma conferência independente: assinatura criptográfica válida, certificado igual ao certificado público guardado e integridade dos dez arquivos assinados conferida. Na mesma execução, o APK de teste foi instalado e abriu o login no emulador Android; o job android-launch passou. Isso não representa teste dos fluxos autenticados nem instalação do AAB em aparelho físico.
+
+- Certificado SHA-256: `cf31264bd399e66734749f8c81bb3f5eb9490c32b1ea2fbf97466dde62344796`.
+- AAB SHA-256: `89d764208eb392dcaab637145d1c929e9f656d2cdd6ab3562b3c928def98ef26`.
+
+Isso conclui a preparação da assinatura Android; não atesta homologação dos fluxos completos, conformidade integral nem aprovação de loja. A assinatura Apple/TestFlight, exclusão efetiva de contas, conta de revisão e testes em aparelhos físicos continuam pendentes. Nenhum pagamento nem submissão às lojas foi realizado.
 
 ## Exclusão de contas
 
