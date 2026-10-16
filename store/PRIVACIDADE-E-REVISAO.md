@@ -36,7 +36,7 @@ Criar conta exclusiva de motorista com dados fictícios, aprovação e conteúdo
 
 ## Pendências que não podem ser consideradas concluídas automaticamente
 
-1. Validar compilações dos dois workflows após as mudanças e testar em dispositivos.
+1. Completar testes dos fluxos autenticados e em aparelhos físicos. As compilações e os testes de abertura inicial estão registrados abaixo; não equivalem a homologação completa.
 2. Configurar os quatro secrets Android já previstos no workflow e guardar backup seguro da chave de upload. A chave pode ser preparada antes do pagamento; esta conexão GitHub não fornece operação de gravação de secrets. Nunca publicar chave/senha no código, em logs ou artifacts.
 3. Confirmar canal público de suporte e processo completo de exclusão, incluindo autenticação indisponível, dados relacionados, arquivos e cópias de segurança. O atendimento deve diferenciar retenção necessária de exclusão efetiva e comunicar o resultado. A aprovação da Apple exige que a experiência de exclusão atenda às regras aplicáveis; uma fila isolada não atesta conformidade.
 4. Capturar imagens reais e concluir as respostas de privacidade, faixa etária e conteúdo.
@@ -52,24 +52,18 @@ Criar conta exclusiva de motorista com dados fictícios, aprovação e conteúdo
 - https://developer.apple.com/app-store/review/guidelines/br/
 - https://developer.apple.com/app-store/app-privacy-details/
 
-## Verificações desta preparação
+## Verificações confirmadas
 
-Testes de banco com rollback também confirmaram consulta e resposta por administração ativa e aprovada. Nenhuma conta sintética ou protocolo de teste permaneceu salvo. Os testes locais de navegador não puderam iniciar porque o Chromium não está disponível e o download retornou arquivo inválido; não há validação visual local concluída. A captura inicial no simulador iOS é feita pelo workflow e deve ser inspecionada.
+- iOS: execução 38880250145, commit 1794ccd. Compilação para simulador e dispositivo; aplicativo instalado e aberto no iPhone simulado; captura extraída e inspecionada. Também houve compilação e abertura aprovadas no commit c7fab (execução 38881632200). Não valida fluxos autenticados nem iPhone físico.
+- Android: execução 38896019123, commit 56b8550. APK compilado, instalado e aberto em Android 15/API 35; CPF, senha e Entrar identificados; captura extraída e inspecionada. Nenhum dado operacional foi criado. O AAB permanece sem assinatura de publicação.
+- A captura revelou pouco contraste na barra superior Android; a correção compilou e uma captura posterior confirmou ícones escuros no fundo claro. As repetições do teste encontraram travamento do Pixel Launcher do emulador e falha de DNS, registrados nos artifacts. O teste final exige o login em primeiro plano, não aceita tela vazia ou de erro e verifica erros AndroidRuntime. Permite no máximo duas tentativas pelo botão nativo, com diagnóstico salvo; não altera autenticação nem dados.
+- Android final: execução 38898484372, commit 350949e. Compilação e abertura aprovadas. O login apareceu após uma nova tentativa pelo botão nativo; `tentativas.txt` registra 1. Captura do artifact 12045126742 extraída e inspecionada: login visível, barra superior legível, aplicativo em primeiro plano e sem erro AndroidRuntime. O acesso de rede inicial do emulador foi instável; não declarar ausência de falhas de conexão. Fluxos autenticados e aparelhos físicos continuam pendentes.
+- Testes de regressão web, pagamentos, capacidade e autorização passaram nas compilações Android. Testes SQL com rollback confirmaram isolamento dos protocolos e autorização administrativa; os testes Edge rejeitam acesso indevido. Nenhuma conta sintética ou protocolo de teste permaneceu salvo.
+- As páginas públicas de privacidade, suporte e exclusão foram publicadas no Render e conferidas por navegação. O servidor respondeu HTTP 200 em 16/10/2026. Isso não substitui homologação dos fluxos completos.
 
-Compilações do commit b442d60: Android aprovado (APK de teste e AAB sem assinatura); iOS aprovado para simulador e dispositivo sem assinatura. As duas execuções estão no PR #13. O próximo commit acrescenta captura inicial do iPhone no simulador e corrige a publicação do script de instalação compartilhada, antes omitido do build web.
+## Assinatura Android
 
-Verificação de publicação: o commit a396bfd chegou ao Render e ficou LIVE. Login, suporte, exclusão e política foram conferidos por navegação no navegador. A abertura do simulador ficou sem concluir; a etapa de captura possui limite de quatro minutos e é reportada separadamente da compilação. Testes em aparelhos e capturas definitivas continuam pendentes. O nome da migração foi alinhado à versão efetivamente aplicada no banco (20261016025553).
-
-
-## Continuação em 16/10/2026
-
-A execução iOS 38844016906 compilou, mas os logs registraram timeout no boot (LaunchServicesMigrator) e o artifact não contém captura. O resultado geral “success” não representa um teste de abertura aprovado. A nova configuração usa macOS 15, Xcode 26.3 (SDK iOS 26.2), preferência pelo runtime iOS 18.5, boot antecipado e assinatura ad hoc do simulador. Falha de abertura passa a falhar a verificação.
-
-O atendimento administrativo oferece **ANALISAR VÍNCULOS ANTES DA EXCLUSÃO**. A função `account-deletion-review` valida administração ativa/aprovada e sessão atual, deriva o titular do protocolo, inventaria referências da conta e do motorista e conta arquivos identificados. É somente leitura: não exclui conta nem dados. Arquivos legados fora da pasta/sem proprietário ainda exigem conferência. O teste SQL roda com rollback; a Edge Function rejeita motorista, conta inativa/pendente, senha obrigatória e ação DELETE. Não confundir essa análise com processamento concluído de exclusão. A política de retenção e a remoção efetiva continuam pendentes.
-
-### Assinatura Android preparada
-
-`scripts/android-signing.py` pode criar a chave de upload, salvar backup com criptografia e autenticação de integridade e configurar os quatro Secrets via GitHub CLI. Os três testes verificam backup recuperável, rejeição de senha incorreta/arquivo alterado, transmissão por stdin e recusa de backup dentro de Git. Os testes usam chave descartável, não uma chave de produção.
+`scripts/android-signing.py` pode criar a chave de upload, salvar backup com criptografia e autenticação de integridade e configurar os quatro Secrets via GitHub CLI. Os testes usam chave descartável e verificam recuperação, rejeição de senha incorreta/arquivo alterado, transmissão por stdin e recusa de backup dentro de Git.
 
 1. Conferir ferramentas e autenticação: `python3 scripts/android-signing.py --preflight`.
 2. Com GitHub CLI autenticado e permissão de Secrets no repositório, executar `python3 scripts/android-signing.py --backup-dir /caminho/seguro/fora/do/repositorio`.
@@ -77,6 +71,8 @@ O atendimento administrativo oferece **ANALISAR VÍNCULOS ANTES DA EXCLUSÃO**. 
 4. O programa se recusa a sobrescrever backup ou gerar outra chave se Secrets de assinatura já existirem. Em falha parcial, restaurar o mesmo backup com `--restore /caminho/ForteFrete-upload-key.enc`.
 5. Executar o workflow Android e verificar `ForteFrete-PlayStore-AAB-Assinado`. Não enviar o AAB sem assinatura.
 
-Bloqueio da sessão atual: não há GitHub CLI autenticado nem credencial GitHub disponível no ambiente; o conector não oferece operação de gravação de Secrets. Nenhuma chave de produção foi criada ou enviada. Não houve pagamento nem submissão às lojas.
+Acesso ao repositório confirmado na conta FORTEATACAREJO. A página de Actions Secrets foi conferida e ainda não contém Secrets de repositório ou de ambiente. O navegador está autenticado; o GitHub CLI continua sem autenticação e o conector não oferece gravação de Secrets. A assinatura depende da execução do procedimento de backup e cadastro acima. Nenhuma chave de produção foi criada ou enviada. Não houve pagamento nem submissão às lojas.
 
-Resultado confirmado da execução 38880250145 (commit 1794ccd): compilação para simulador e dispositivo concluída; aplicativo instalado, aberto e tela capturada. O artifact 12037806308 contém `ForteFrete-iOS-Tela-Teste.png`. A captura foi extraída e inspecionada. Isso valida a abertura inicial, não os fluxos autenticados de motorista nem um iPhone físico.
+## Exclusão de contas
+
+O atendimento administrativo oferece **ANALISAR VÍNCULOS ANTES DA EXCLUSÃO**. A função `account-deletion-review` valida administração ativa/aprovada e sessão atual, deriva o titular do protocolo, inventaria referências da conta e do motorista e conta arquivos identificados. É somente leitura: não exclui conta nem dados. Arquivos legados fora da pasta/sem proprietário ainda exigem conferência. O teste SQL roda com rollback; a Edge Function rejeita motorista, conta inativa/pendente, senha obrigatória e ação DELETE. A política de retenção e a remoção efetiva continuam pendentes.
