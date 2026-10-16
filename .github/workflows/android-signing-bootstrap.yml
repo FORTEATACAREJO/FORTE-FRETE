@@ -1,0 +1,47 @@
+name: Preparar chave Android pelo celular
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: 'Criar a primeira chave e salvar somente backup criptografado e certificado público no repositório'
+        type: boolean
+        required: true
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: forte-android-primeira-chave
+  cancel-in-progress: false
+jobs:
+  prepare-key:
+    if: github.ref == 'refs/heads/main' && github.actor == github.repository_owner && inputs.confirmar
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Generate first key and verify encrypted recovery copy
+        env:
+          FORTE_SIGNING_BACKUP_PASSWORD: ${{ secrets.FORTE_SIGNING_BACKUP_PASSWORD }}
+          FORTE_KEYSTORE_BASE64: ${{ secrets.FORTE_KEYSTORE_BASE64 }}
+          FORTE_KEYSTORE_PASSWORD: ${{ secrets.FORTE_KEYSTORE_PASSWORD }}
+          FORTE_KEY_ALIAS: ${{ secrets.FORTE_KEY_ALIAS }}
+          FORTE_KEY_PASSWORD: ${{ secrets.FORTE_KEY_PASSWORD }}
+        run: python3 scripts/android-signing-ci.py bootstrap
+      - name: Save only encrypted backup and public certificate
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- store/android-upload-key.enc store/android-upload-cert.der
+          git commit -m 'chore: guardar chave Android criptografada e certificado público'
+          git push origin HEAD:main
+          echo 'Chave preparada. Guarde separadamente a senha do Secret e uma cópia de store/android-upload-key.enc. Execute Android APK and Store Build para validar o AAB assinado.' >> "$GITHUB_STEP_SUMMARY"

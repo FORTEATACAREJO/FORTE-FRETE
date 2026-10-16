@@ -37,7 +37,7 @@ Criar conta exclusiva de motorista com dados fictícios, aprovação e conteúdo
 ## Pendências que não podem ser consideradas concluídas automaticamente
 
 1. Completar testes dos fluxos autenticados e em aparelhos físicos. As compilações e os testes de abertura inicial estão registrados abaixo; não equivalem a homologação completa.
-2. Configurar os quatro secrets Android já previstos no workflow e guardar backup seguro da chave de upload. A chave pode ser preparada antes do pagamento; esta conexão GitHub não fornece operação de gravação de secrets. Nunca publicar chave/senha no código, em logs ou artifacts.
+2. Configurar a assinatura Android pelo fluxo de celular abaixo (um Secret e backup criptografado) ou pelo procedimento antigo de quatro Secrets. Guardar uma cópia do backup e a senha separadamente. Não publicar chave privada ou senha em texto aberto, logs ou artifacts.
 3. Confirmar canal público de suporte e processo completo de exclusão, incluindo autenticação indisponível, dados relacionados, arquivos e cópias de segurança. O atendimento deve diferenciar retenção necessária de exclusão efetiva e comunicar o resultado. A aprovação da Apple exige que a experiência de exclusão atenda às regras aplicáveis; uma fila isolada não atesta conformidade.
 4. Capturar imagens reais e concluir as respostas de privacidade, faixa etária e conteúdo.
 5. Confirmar titularidade/identificação das contas empresariais e eventual D-U-N-S.
@@ -61,7 +61,21 @@ Criar conta exclusiva de motorista com dados fictícios, aprovação e conteúdo
 - Testes de regressão web, pagamentos, capacidade e autorização passaram nas compilações Android. Testes SQL com rollback confirmaram isolamento dos protocolos e autorização administrativa; os testes Edge rejeitam acesso indevido. Nenhuma conta sintética ou protocolo de teste permaneceu salvo.
 - As páginas públicas de privacidade, suporte e exclusão foram publicadas no Render e conferidas por navegação. O servidor respondeu HTTP 200 em 16/10/2026. Isso não substitui homologação dos fluxos completos.
 
-## Assinatura Android
+## Assinatura Android pelo celular
+
+O workflow manual **Preparar chave Android pelo celular** evita instalar ferramentas no telefone. Não cria contas de lojas, não cobra e não submete aplicativos. Está preparado, mas nenhuma chave definitiva foi gerada por esta etapa.
+
+1. No GitHub do Forte Frete, criar um **Repository Secret** chamado `FORTE_SIGNING_BACKUP_PASSWORD`. Usar senha forte e exclusiva de 32 a 256 caracteres, com pelo menos três entre maiúsculas, minúsculas, números e símbolos, sem repetições simples nem quebras de linha. Guardá-la separadamente em um gerenciador de senhas. Não enviar a senha por chat nem colocá-la em Variables, código ou inputs de workflow.
+2. Em Actions, abrir **Preparar chave Android pelo celular**, escolher main e confirmar a criação da primeira chave. Somente o titular do repositório pode iniciar a geração. A etapa manual tem permissão de escrita apenas para guardar o resultado nesse repositório; os builds normais continuam com leitura.
+3. O workflow gera a chave temporariamente no executor, verifica o backup, e salva **somente** `store/android-upload-key.enc` e o certificado público `store/android-upload-cert.der`. O repositório é público: o arquivo cifrado será público, e sua proteção depende da força e guarda da senha. A chave privada e sua senha aleatória não são publicadas em texto aberto. Nenhum artifact contém credenciais privadas.
+4. Guardar também uma cópia de `store/android-upload-key.enc` fora do repositório. Só esse arquivo ou só a senha não bastam para recuperação. Não trocar nem apagar o Secret após criar a chave sem um procedimento de recuperação/recriptografia; a geração recusa sobrescrever material existente.
+5. Executar manualmente **Android APK and Store Build** em main. O commit do workflow de geração não dispara automaticamente outro workflow com o token padrão do GitHub. Conferir o artifact **ForteFrete-PlayStore-AAB-Assinado** e a etapa de verificação da assinatura antes de considerar concluído.
+
+O build suporta esse método e o antigo de quatro Secrets, mas recusa configuração mista para evitar troca silenciosa de identidade. Backup ausente, senha incorreta, integridade inválida, certificado diferente ou configuração parcial interrompem a assinatura. Os testes usam chaves descartáveis.
+
+Referência oficial do modelo de arquivo cifrado com senha em Secret: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets#storing-large-secrets
+
+## Alternativa de assinatura Android pelo computador
 
 `scripts/android-signing.py` pode criar a chave de upload, salvar backup com criptografia e autenticação de integridade e configurar os quatro Secrets via GitHub CLI. Os testes usam chave descartável e verificam recuperação, rejeição de senha incorreta/arquivo alterado, transmissão por stdin e recusa de backup dentro de Git.
 
@@ -71,7 +85,7 @@ Criar conta exclusiva de motorista com dados fictícios, aprovação e conteúdo
 4. O programa se recusa a sobrescrever backup ou gerar outra chave se Secrets de assinatura já existirem. Em falha parcial, restaurar o mesmo backup com `--restore /caminho/ForteFrete-upload-key.enc`.
 5. Executar o workflow Android e verificar `ForteFrete-PlayStore-AAB-Assinado`. Não enviar o AAB sem assinatura.
 
-Acesso ao repositório confirmado na conta FORTEATACAREJO. A página de Actions Secrets foi conferida e ainda não contém Secrets de repositório ou de ambiente. O navegador está autenticado; o GitHub CLI continua sem autenticação e o conector não oferece gravação de Secrets. A assinatura depende da execução do procedimento de backup e cadastro acima. Nenhuma chave de produção foi criada ou enviada. Não houve pagamento nem submissão às lojas.
+Acesso ao repositório confirmado na conta FORTEATACAREJO. A página de Actions Secrets foi conferida e ainda não contém Secrets de repositório ou de ambiente. O navegador está autenticado; o GitHub CLI continua sem autenticação e o conector não oferece gravação de Secrets. A assinatura depende da entrada manual do Secret pelo titular e da execução/validação do novo fluxo, ou do procedimento alternativo de quatro Secrets. Nenhuma chave de produção foi criada ou enviada. Não houve pagamento nem submissão às lojas.
 
 ## Exclusão de contas
 

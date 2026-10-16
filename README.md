@@ -15,7 +15,7 @@ Schema aplicado em `supabase/separate-registration.sql` e `supabase/pix-key.sql`
 ## Preparação das lojas sem pagamento
 
 Android 1.2.0 (5): `android-apk/`; APK de testes e AAB pelo workflow Android.
-O AAB só é publicável quando assinado com os quatro secrets previstos no workflow.
+O AAB só é publicável quando assinado: há um fluxo de preparação pelo celular com um Secret e backup criptografado, além do método antigo de quatro Secrets. Instruções em `store/PRIVACIDADE-E-REVISAO.md`.
 
 iOS 1.2.0 (5): projeto gerado com `xcodegen generate --spec ios/project.yml`;
 workflow iOS compila para simulador e dispositivo sem conta paga e captura uma tela de teste.
