@@ -12,6 +12,7 @@ for (const file of files) {
   }
   fs.copyFileSync(file, path.join(dist, file));
 }
+fs.copyFileSync(path.join('public', 'forte-share-install.js'), path.join(dist, 'forte-share-install.js'));
 fs.writeFileSync(path.join(dist, 'config.js'), `export const SUPABASE_URL=${JSON.stringify(process.env.SUPABASE_URL || '')};export const SUPABASE_PUBLISHABLE_KEY=${JSON.stringify(process.env.SUPABASE_PUBLISHABLE_KEY || '')};`);
 
 // Validate the published set, not stale files left by an earlier build.

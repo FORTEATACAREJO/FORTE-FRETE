@@ -9,6 +9,7 @@ try {
   for (const file of fs.readdirSync(root)) {
     if (fs.statSync(path.join(root, file)).isFile()) fs.copyFileSync(path.join(root, file), path.join(fixture, file));
   }
+  fs.cpSync(path.join(root, 'public'), path.join(fixture, 'public'), { recursive: true });
   const build = () => spawnSync(process.execPath, ['build.js'], { cwd: fixture, encoding: 'utf8' });
   let result = build();
   assert.equal(result.status, 0, result.stderr);

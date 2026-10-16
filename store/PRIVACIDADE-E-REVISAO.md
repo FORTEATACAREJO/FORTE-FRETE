@@ -17,7 +17,7 @@ Não declarar “nenhum dado coletado”. Conferir campos das lojas para informa
 
 ## Material visual
 
-Ícone existente preservado em 512 px (Google/web) e 1024 px (Apple). `scripts/mobile-assets.py` reproduz os arquivos sem bibliotecas externas. Capturas definitivas devem sair dos aplicativos em execução com dados fictícios, sem CPF, telefone, CNH ou Pix reais. Capturar: login; cargas disponíveis; detalhes/aceite; viagens; pagamentos; cadastro/documentos. Capturar tamanhos solicitados pelos consoles e produzir destaque Google Play 1024 × 500 a partir da identidade aprovada. Não apresentar montagens como telas reais.
+Ícone existente preservado em 512 px (Google/web) e 1024 px (Apple). `scripts/mobile-assets.py` reproduz os arquivos sem bibliotecas externas. Capturas definitivas devem sair dos aplicativos em execução com dados fictícios, sem CPF, telefone, CNH ou Pix reais. Capturar: login; cargas disponíveis; detalhes/aceite; viagens; pagamentos; cadastro/documentos. Capturar tamanhos solicitados pelos consoles e validar o destaque Google Play 1024 × 500 preparado em `store/pt-BR/destaque-google-play.png`. Não apresentar montagens como telas reais.
 
 ## Teste obrigatório antes de pagar/submeter
 
@@ -51,3 +51,9 @@ Criar conta exclusiva de motorista com dados fictícios, aprovação e conteúdo
 - https://support.google.com/googleplay/android-developer/answer/10787469
 - https://developer.apple.com/app-store/review/guidelines/br/
 - https://developer.apple.com/app-store/app-privacy-details/
+
+## Verificações desta preparação
+
+Testes de banco com rollback também confirmaram consulta e resposta por administração ativa e aprovada. Nenhuma conta sintética ou protocolo de teste permaneceu salvo. Os testes locais de navegador não puderam iniciar porque o Chromium não está disponível e o download retornou arquivo inválido; não há validação visual local concluída. A captura inicial no simulador iOS é feita pelo workflow e deve ser inspecionada.
+
+Compilações do commit b442d60: Android aprovado (APK de teste e AAB sem assinatura); iOS aprovado para simulador e dispositivo sem assinatura. As duas execuções estão no PR #13. O próximo commit acrescenta captura inicial do iPhone no simulador e corrige a publicação do script de instalação compartilhada, antes omitido do build web.
