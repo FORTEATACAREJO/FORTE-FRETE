@@ -45,6 +45,7 @@ jobs:
           xcrun simctl launch "$device_id" br.com.forteatacarejo.frete
           sleep 8
           xcrun simctl io "$device_id" screenshot build/ForteFrete-iOS-Tela-Teste.png
+          test -s build/ForteFrete-iOS-Tela-Teste.png
       - name: Validar compilação para dispositivo sem assinatura
         run: |
           xcodebuild -project ios/ForteFrete.xcodeproj -scheme ForteFrete -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build/ios-device CODE_SIGNING_ALLOWED=NO build

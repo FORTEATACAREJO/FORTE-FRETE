@@ -15,3 +15,7 @@ ios/ForteFrete/Info.plist
 .DS_Store
 
 supabase/.temp/
+
+__pycache__/
+*.pyc
+*.enc
