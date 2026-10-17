@@ -77,17 +77,35 @@ const render=()=>{const term=search.value.toLocaleLowerCase("pt-BR"),matched=use
 }catch(e){if(panel.dataset.tab==="active")panel.querySelector('[role="status"]').textContent=e.message}
 }
 function adminUI(isAdmin){if(!isAdmin){adminBox.innerHTML="";return}if(!adminBox.querySelector(".fa-admin-button")){adminBox.innerHTML='<button class="fa-admin-button" aria-live="polite">CADASTROS • CONFERINDO FILA</button><button class="fa-invite-button">CONVIDAR USUÁRIO</button><section class="fa-admin-panel" hidden></section>';installVaultButton({client,adminBox,onOpen:()=>{queueOpen=false;const panel=adminBox.querySelector("section");panel.dataset.tab="vault";panel.hidden=false;renderIntegrationVault({client,app,host:panel,onClose:()=>{panel.hidden=true;panel.dataset.tab="pending"}})}});adminBox.querySelector(".fa-admin-button").onclick=()=>{queueOpen=true;const panel=adminBox.querySelector("section");panel.dataset.tab="pending";panel.hidden=false;refreshQueue(true)};adminBox.querySelector(".fa-invite-button").onclick=()=>{queueOpen=false;const panel=adminBox.querySelector("section");panel.dataset.tab="invite";panel.hidden=false;renderUserInvites({client,app,host:panel,onClose:()=>{panel.hidden=true;panel.dataset.tab="pending"}})}}refreshQueue()}
+let approvalDialog=null;
+const acknowledgedApprovals=new Set();
+function showApprovalNotice(status,userId){
+ const event=status.notifications?.find(item=>item.event==='APROVADO');
+ if(app!=='frete'||!userId||!event||approvalDialog)return;
+ const key='forte:approval-notice:'+app+':'+userId+':'+(event.id||event.created_at||'approved');
+ try{if(localStorage.getItem(key)==='seen')return}catch{}
+ if(acknowledgedApprovals.has(key))return;
+ const dialog=document.createElement('dialog');approvalDialog=dialog;
+ dialog.setAttribute('aria-labelledby','fa-approval-title');
+ dialog.style.cssText='max-width:420px;width:calc(100% - 48px);box-sizing:border-box;border:0;border-radius:20px;padding:28px;color:#172b45;font:16px Arial;z-index:6000';
+ dialog.innerHTML='<h2 id="fa-approval-title">Cadastro aprovado com sucesso!</h2><p>Seu acesso ao Forte Frete está liberado. Você já pode entrar e utilizar as funções autorizadas para o seu perfil.</p><button type="button" style="padding:14px;border:0;border-radius:10px;background:#1455a3;color:white;font-weight:bold;width:100%">ENTENDI • CONTINUAR</button>';
+ const acknowledge=()=>{acknowledgedApprovals.add(key);try{localStorage.setItem(key,'seen')}catch{}dialog.close()};
+ dialog.querySelector('button').onclick=acknowledge;
+ dialog.addEventListener('cancel',e=>{e.preventDefault();acknowledge()});
+ dialog.addEventListener('close',()=>{dialog.remove();approvalDialog=null});
+ document.body.append(dialog);dialog.showModal();
+}
 async function check(){
 if(disposed)return;if(checking){checkAgain=true;return}checking=true;
 try{await notificationControl.ready;const s=await accessTimeout(client.auth.getSession());if(!s.data.session){const wasApproved=approved;if(approved){approved=false;onBlocked?.()}adminUI(false);if(wasApproved||box.hidden||mode==="pending"||mode==="password"){mode="login";draw()}else if(!box.querySelector("form"))draw();return}
 const r=await call("STATUS");lastStatus=r;if(r.cpf)rememberCpf(r.cpf);
 if(recovery||r.changing){approved=false;onBlocked?.();adminUI(false);if(mode!=="password"||!box.querySelector("form")){mode="password";draw()}return}
-if(r.allowed){if(!approved){if(mounted){location.reload();return}mounted=true;approved=true;box.hidden=true;if(content)content.hidden=false;onAllowed?.(r);resolveReady(r)}adminUI(r.isAdmin);return}
+if(r.allowed){if(!approved){if(mounted){location.reload();return}mounted=true;approved=true;box.hidden=true;if(content)content.hidden=false;onAllowed?.(r);resolveReady(r)}adminUI(r.isAdmin);showApprovalNotice(r,s.data.session.user?.id);return}
 if(approved){approved=false;onBlocked?.()}adminUI(false);if(driverOnboarding&&await driverOnboarding.render(box,{onCheck:check,onLogout:async()=>{await client.auth.signOut();location.replace(location.pathname)}})){return;}if(["request","recover"].includes(mode)&&box.querySelector("form"))return;mode="pending";notice=r.notifications?.[0]?.message||(r.status==="SEM_SOLICITACAO"?"Seu cadastro ainda não tem autorização para este aplicativo. Solicite a análise.":"Cadastro enviado. Aguarde aprovação do admin ou master.");draw();
 }catch(e){if(approved){approved=false;onBlocked?.()}notice=e.message;draw()}finally{checking=false;if(checkAgain){checkAgain=false;setTimeout(check,0)}}
 }
 const sub=client.auth.onAuthStateChange(event=>{if(event==="PASSWORD_RECOVERY")recovery=true;setTimeout(check,0)}).data.subscription;
 const timer=setInterval(()=>{if(document.visibilityState==="visible")check()},15000);draw();check();
-return {ready,check,openActiveUsers(){queueOpen=true;const panel=adminBox.querySelector(".fa-admin-panel");if(!panel)return;panel.hidden=false;return refreshActive()},dispose(){notificationControl.dispose();disposed=true;clearInterval(timer);toolbarObserver.disconnect();sub.unsubscribe();box.remove();adminBox.remove();style.remove()}};
+return {ready,check,openActiveUsers(){queueOpen=true;const panel=adminBox.querySelector(".fa-admin-panel");if(!panel)return;panel.hidden=false;return refreshActive()},dispose(){approvalDialog?.remove();approvalDialog=null;notificationControl.dispose();disposed=true;clearInterval(timer);toolbarObserver.disconnect();sub.unsubscribe();box.remove();adminBox.remove();style.remove()}};
 }
 
