@@ -54,6 +54,7 @@ if(action==="RECOVERY_REQUEST"){
 }
 if(action==="REGISTER"){
 const v=validateRegistration(b);
+if(frete&&b.registration_kind!==undefined&&!["MOTORISTA","USUARIO"].includes(b.registration_kind))return reply({error:"Selecione motorista ou funcionário."},400);
 if(v.email==="masterforteatacarejo@gmail.com"||v.email?.endsWith("@acesso.forte.internal"))return reply({error:"Use um e-mail pessoal válido."},400);
 if(!await rate("register:"+v.cpf)||!await rate("register-ip:"+(req.headers.get("x-forwarded-for")||"unknown").split(",")[0],8))return reply({error:"Muitas tentativas. Aguarde um minuto."},429);
 const existing=await admin.from(table).select(idcol).eq("cpf",v.cpf).limit(1);
@@ -65,6 +66,7 @@ if(created.error||!created.data.user)return reply({error:"Não foi possível cri
 createdId=created.data.user.id;
 const saved=await admin.rpc("access_register_profile",{p_user:createdId,p_app:app,p_nome:v.nome,p_cpf:v.cpf,p_whatsapp:v.whatsapp,p_birth:v.data_nascimento,p_email:v.email});
 if(saved.error)throw Error("Falha ao salvar cadastro.");
+if(frete&&(b.registration_kind||"MOTORISTA")==="MOTORISTA"){const dossier=await admin.rpc("driver_onboarding_start",{p_user:createdId});if(dossier.error)throw Error("Não foi possível iniciar as etapas obrigatórias do motorista.");}
 await audit("CADASTRO_ENVIADO",createdId);createdId=null;
 return reply({status:"PENDENTE",message:"Cadastro enviado para análise. Aguarde aprovação do admin ou master. Entre com CPF e senha para acompanhar."},201);
 }
