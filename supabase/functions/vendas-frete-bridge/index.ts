@@ -17,6 +17,15 @@ Deno.serve(async(req)=>{
   const permission=await vendas.rpc('fc_operacao_autorizada');if(permission.error||permission.data!==true)return Response.json({error:'Aplicativo sem aprovação operacional.'},{status:403,headers});
   const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const body=await req.json();
+  if(body.action==='OPERATION_SNAPSHOT'){
+   const readAll=async(table:string,fields:string,order:string)=>{const rows=[];for(let offset=0;;offset+=500){const result=await admin.from(table).select(fields).order(order).range(offset,offset+499);if(result.error)throw result.error;rows.push(...(result.data||[]));if((result.data||[]).length<500)return rows;}};
+   const [loads,trips,users]=await Promise.all([
+    readAll('cargas','id,origem_cidade,origem_uf,destino_cidade,destino_uf,produto,fornecedor,local_expedicao,peso_min_t,peso_max_t,peso_unitario_kg,frete_por_t,data_carregamento,status,audiencia,oferta_status,destinatario_motorista_id,numero_pedido_fornecedor,created_at','id'),
+    readAll('viagens','id,carga_id,motorista_id,veiculo_id,origem,destino,produto,peso_t,frete_por_t,frete_total,status,numero_pedido_fornecedor,pagamento_status,ordem_enviada_em,carregamento_iniciado_em,viagem_iniciada_em,entrega_concluida_em,created_at','id'),
+    readAll('usuarios_app','user_id,nome,perfil,ativo,status_aprovacao','user_id')
+   ]);
+   return Response.json({cargas:loads,viagens:trips,usuarios:users,consultadoEm:new Date().toISOString()},{headers});
+  }
   if(body.action==='LIST_ACCEPTANCES'){
    const {data:events,error}=await admin.rpc('frete_listar_integracoes');if(error)throw error;
    return Response.json({events:events||[]},{headers});
@@ -29,7 +38,7 @@ Deno.serve(async(req)=>{
   }
   const {data:drivers,error:driversError}=await admin.from('motoristas').select(DRIVER_FIELDS.replace('componentes,rntrc,proprietario_nome)', 'componentes,rntrc,proprietario_nome,proprietario_cpf_cnpj,favorecido_id)')+',proprietario_cpf_cnpj,documentos_motorista(id,tipo,status)').in('status_cadastro',['aprovado','legado']);if(driversError)throw driversError;
   if(body.action==='LIST_DRIVERS')return Response.json({motoristas:directoryRows(drivers||[])},{headers});
-  if(!['PUBLISH','DRIVER_DETAILS'].includes(body.action))throw new Error('Ação inválida.');
+  if(!['PUBLISH','SYNC_PAYMENT','DRIVER_DETAILS'].includes(body.action))throw new Error('Ação inválida.');
   const {data:row,error:stateError}=await vendas.rpc('fc_carregar_estado');if(stateError)throw stateError;
   const state=row.estado,c=(state.cargas||[]).find(x=>x.id===body.cargaId&&x.status!=='CANCELADA');
   if(!c?.numeroPedidoFornecedor||!c.ordemRevisadaEm||!c.itens?.length)throw new Error('Revise e grave a ordem no Forte Vendas antes de enviá-la.');
@@ -45,6 +54,7 @@ Deno.serve(async(req)=>{
    }else{const {data:legacy,error}=await admin.from('motoristas').select('chave_pix,titular_pix').eq('id',driver.id).single();if(error)throw error;payment={favorecido:legacy.titular_pix||driver.nome,chavePix:legacy.chave_pix||''};}
    return Response.json({payment},{headers});
   }
+  if(body.action==='SYNC_PAYMENT'){const {data:existing,error}=await admin.from('vendas_ordens').select('motorista_id,snapshot').eq('empresa_vendas_id',p.empresa_id).eq('carga_vendas_id',c.id).maybeSingle();if(error)throw error;if(existing&&(existing.motorista_id!==driver.id||existing.snapshot?.pedido!==c.numeroPedidoFornecedor))throw new Error('Motorista ou pedido divergente. Revise o vínculo antes de sincronizar o comprovante.');}
   if(String(c.regraPallets||'').startsWith('Solicitar')&&!c.liberacaoPalletsFornecedor?.evidencia)throw new Error('Registre a autorização de pallets do fornecedor antes de enviar a ordem.');
   const plateList=[vehicle.placa,...(vehicle.componentes||[]).map(v=>v.placa)].filter(Boolean);if(c.placas?.[0]!==vehicle.placa)throw new Error('Conjunto mudou. Sincronize os motoristas e revise a ordem.');
   let paymentPath=null;
@@ -53,6 +63,6 @@ Deno.serve(async(req)=>{
   const snapshot={codigo:c.codigo,pedido:c.numeroPedidoFornecedor,fornecedor:c.fornecedor,origem:c.localCarregamento||c.origem,destino:c.destino,dataCarregamento:c.dataCarregamento,motorista:driver.nome,placas:plateList,pesoKg:c.pesoKg,fretePorTon:c.fretePorTon,freteValor:c.freteValor,modalidadeFrete:c.modalidadeFrete,pallet:c.regraPallets||c.pallet,palletQuantidade:c.palletQuantidade,itens:c.itens.map(i=>({produto:i.produto,qtd:i.qtd,pesoKg:i.pesoKg}))};
   const at=new Date().toISOString();const {data:receipt,error}=await admin.from('vendas_ordens').upsert({empresa_vendas_id:p.empresa_id,carga_vendas_id:c.id,motorista_id:driver.id,snapshot,documento_frete_path:paymentPath,pagamento_status:paymentPath?'PAGO — COMPROVANTE VALIDADO':c.modalidadeFrete==='CIF'?'CIF — NÃO SE APLICA':'PENDENTE',updated_at:at},{onConflict:'empresa_vendas_id,carga_vendas_id'}).select('id,enviada_em').single();if(error)throw error;
   const paymentSync=await admin.rpc('frete_sincronizar_comprovante',{p_carga_vendas:c.id});if(paymentSync.error)throw paymentSync.error;
-  return Response.json({ok:true,id:receipt.id,enviadaEm:receipt.enviada_em,motoristaId:driver.id},{headers});
+  return Response.json({ok:true,id:receipt.id,enviadaEm:receipt.enviada_em,motoristaId:driver.id,comprovanteHash:doc?.hash||null},{headers});
  } catch(e){return Response.json({error:e.message||'Falha na integração.'},{status:400,headers});}
 });

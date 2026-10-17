@@ -12,7 +12,7 @@ await page.evaluate(async()=>{window.allowed=true;await control.check()});
 await page.getByRole('heading',{name:'Cadastro aprovado com sucesso!'}).waitFor();
 assert.equal(await page.locator('dialog').evaluate(d=>d.open),true);
 await page.evaluate(()=>control.check());assert.equal(await page.locator('dialog').count(),1);
-await page.getByRole('button',{name:'ENTENDI • CONTINUAR'}).click();
+await page.getByRole('button',{name:'ENTENDI • CONTINUAR'}).click();await page.locator('dialog').waitFor({state:'detached'});
 await page.evaluate(()=>control.check());assert.equal(await page.locator('dialog').count(),0);
 await page.reload();
 await page.evaluate(async()=>{const client={auth:{getSession:async()=>({data:{session:{user:{id:'recipient-fixture'}}}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},functions:{invoke:async()=>({data:{allowed:true,isAdmin:false,notifications:[{id:'approval-1',event:'APROVADO'}]}})}};const {startAccess}=await import('/access-standard.js');window.control=startAccess({client,app:'frete',content:document.getElementById('content')});await control.ready});
