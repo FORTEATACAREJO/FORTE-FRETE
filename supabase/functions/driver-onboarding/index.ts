@@ -65,7 +65,12 @@ Deno.serve(async req=>{
    }catch(e){await db.from('convites_motorista').update({send_error:'Resultado do envio não confirmado. Verifique antes de reenviar.'}).eq('id',invite.id);throw e;}
   }
   if(action==='CLAIM'){const code=String(b.codigo||'');if(code)ok(await db.rpc('access_claim_invite',{p_user:uid,p_code:code}));return reply({message:'Cadastro recebido. A administração definirá seu perfil.'});}
-  if(!driver||profile.perfil!=='MOTORISTA')return reply({needs_documents:false});
+  if(action==='START_DRIVER')return reply(ok(await db.rpc('driver_onboarding_start',{p_user:uid})));
+  if(!driver||profile.perfil!=='MOTORISTA'){
+   const request=ok(await db.from('access_requests').select('status,invite_id,access_invite_id').eq('user_id',uid).eq('app','frete').order('created_at',{ascending:false}).limit(1).maybeSingle());
+   const canStart=!profile.ativo&&profile.status_aprovacao==='PENDENTE'&&!profile.trocar_senha&&profile.perfil==='OPERADOR_GERAL'&&request?.status==='PENDENTE'&&Boolean(request.invite_id||request.access_invite_id);
+   return reply({needs_documents:false,can_start_driver:canStart});
+  }
   let draft=ok(await db.from('driver_onboarding').select('*').eq('user_id',uid).maybeSingle());
   const needs=Boolean(draft?.documents_requested)&&['pre_cadastro','pendencia','reprovado'].includes(driver.status_cadastro)&&profile.status_aprovacao!=='APROVADO';
   if(action==='DRAFT')return reply({needs_documents:needs,driver:{nome:driver.nome,cpf:driver.cpf,telefone:driver.telefone},draft});

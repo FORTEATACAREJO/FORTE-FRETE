@@ -1,9 +1,9 @@
 import {renderUserInvites} from './user-invites.js';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export async function onboardingCall(client,action,body={}){const r=await client.functions.invoke('driver-onboarding',{body:{action,...body}});if(r.error){let msg='Não foi possível concluir. Tente novamente.';if(r.error.context instanceof Response){try{msg=(await r.error.context.clone().json()).error||msg}catch{}}throw Error(msg)}return r.data;}
-export function createDriverOnboarding(client){let mounted='',editing=false;
- return {async render(host,{onCheck,onLogout}={}){
-  const state=await onboardingCall(client,'DRAFT');if(!state.needs_documents){mounted='';return false;}const stamp=state.driver.cpf+':'+(state.draft?.updated_at||'');if(mounted===stamp&&host.querySelector('#driverOnboardingForm'))return true;
+export function createDriverOnboarding(client){let mounted='',editing=false,canStart=false;
+ return {get canStart(){return canStart},async render(host,{onCheck,onLogout}={}){
+  const state=await onboardingCall(client,'DRAFT');canStart=state.can_start_driver===true;if(!state.needs_documents){mounted='';return false;}const stamp=state.driver.cpf+':'+(state.draft?.updated_at||'');if(mounted===stamp&&host.querySelector('#driverOnboardingForm'))return true;
   if(editing&&host.querySelector('#driverOnboardingForm'))return true;
   mounted=stamp;const data=state.draft?.data||{},files={...data.files};
   const input=(name,label,type='text',extra='')=>`<label>${label}<input name="${name}" value="${esc(data[name])}" type="${type}" ${extra}></label>`;
