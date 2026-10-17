@@ -35,6 +35,7 @@ Deno.serve(async(req)=>{
    // Read the independently stored Vendas receipt. Never trust an order number supplied by the browser.
    const {data:r,error}=await vendas.from('fc_frete_solicitacoes').select('id,frete_evento_id,carga_vendas_id,numero_pedido_fornecedor,status').eq('empresa_id',p.empresa_id).eq('frete_evento_id',body.eventId).single();if(error||!r)throw new Error('Solicitação do Vendas não confirmada.');
    const {data:result,error:confirmError}=await admin.rpc('frete_confirmar_integracao',{p_evento:r.frete_evento_id,p_solicitacao:r.id,p_carga_vendas:r.carga_vendas_id,p_numero_pedido:r.status==='PEDIDO_VINCULADO'?r.numero_pedido_fornecedor:null});if(confirmError)throw confirmError;
+   if(r.status==='PEDIDO_VINCULADO'&&r.carga_vendas_id){const sync=await admin.rpc('frete_sincronizar_comprovante',{p_carga_vendas:r.carga_vendas_id});if(sync.error)throw sync.error;}
    return Response.json(result,{headers});
   }
   const {data:drivers,error:driversError}=await admin.from('motoristas').select(DRIVER_FIELDS.replace('componentes,rntrc,proprietario_nome)', 'componentes,rntrc,proprietario_nome,proprietario_cpf_cnpj,favorecido_id)')+',proprietario_cpf_cnpj,documentos_motorista(id,tipo,status)').in('status_cadastro',['aprovado','legado']);if(driversError)throw driversError;
