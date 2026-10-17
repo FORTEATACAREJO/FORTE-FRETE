@@ -1,6 +1,6 @@
 begin;
 -- Selection opens a pending dossier only. It never grants an operational role or approval.
-create function public.driver_onboarding_start(p_user uuid) returns jsonb language plpgsql security invoker set search_path='' as $$
+create or replace function public.driver_onboarding_start(p_user uuid) returns jsonb language plpgsql security invoker set search_path='' as $$
 declare r public.access_requests;p public.usuarios_app;m public.motoristas;d public.driver_onboarding;
 begin
  select * into r from public.access_requests where user_id=p_user and app='frete' order by created_at desc limit 1 for update;
