@@ -19,12 +19,13 @@ Deno.serve(async(req)=>{
   const body=await req.json();
   if(body.action==='OPERATION_SNAPSHOT'){
    const readAll=async(table:string,fields:string,order:string)=>{const rows=[];for(let offset=0;;offset+=500){const result=await admin.from(table).select(fields).order(order).range(offset,offset+499);if(result.error)throw result.error;rows.push(...(result.data||[]));if((result.data||[]).length<500)return rows;}};
-   const [loads,trips,users]=await Promise.all([
+   const [loads,trips,users,driverNames]=await Promise.all([
     readAll('cargas','id,origem_cidade,origem_uf,destino_cidade,destino_uf,produto,fornecedor,local_expedicao,peso_min_t,peso_max_t,peso_unitario_kg,frete_por_t,data_carregamento,status,audiencia,oferta_status,destinatario_motorista_id,numero_pedido_fornecedor,created_at','id'),
     readAll('viagens','id,carga_id,motorista_id,veiculo_id,origem,destino,produto,peso_t,frete_por_t,frete_total,status,numero_pedido_fornecedor,pagamento_status,ordem_enviada_em,carregamento_iniciado_em,viagem_iniciada_em,entrega_concluida_em,created_at','id'),
-    readAll('usuarios_app','user_id,nome,perfil,ativo,status_aprovacao','user_id')
+    readAll('usuarios_app','user_id,nome,perfil,ativo,status_aprovacao','user_id'),
+    readAll('motoristas','id,nome,status_cadastro','id')
    ]);
-   return Response.json({cargas:loads,viagens:trips,usuarios:users,consultadoEm:new Date().toISOString()},{headers});
+   return Response.json({cargas:loads,viagens:trips,usuarios:users,motoristas:driverNames,consultadoEm:new Date().toISOString()},{headers});
   }
   if(body.action==='LIST_ACCEPTANCES'){
    const {data:events,error}=await admin.rpc('frete_listar_integracoes');if(error)throw error;

@@ -36,7 +36,7 @@ jobs:
       - name: Install browser for isolated UI tests
         run: npx playwright install --with-deps chromium
       - name: Test operation modules and visual proposal
-        run: node tests/invite-paths.browser.cjs && node tests/user-approval-save.browser.cjs && node tests/private-loads.browser.cjs && node tests/mobile-shell.browser.cjs && node tests/mobile-prototype.browser.cjs
+        run: node tests/approval-notice.browser.cjs && node tests/invite-paths.browser.cjs && node tests/user-approval-save.browser.cjs && node tests/private-loads.browser.cjs && node tests/mobile-shell.browser.cjs && node tests/mobile-prototype.browser.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: ForteFrete-Proposta-Mobile
