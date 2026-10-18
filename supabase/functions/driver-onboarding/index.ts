@@ -68,12 +68,12 @@ Deno.serve(async req=>{
   if(action==='START_DRIVER')return reply(ok(await db.rpc('driver_onboarding_start',{p_user:uid})));
   if(!driver||profile.perfil!=='MOTORISTA'){
    const request=ok(await db.from('access_requests').select('status,invite_id,access_invite_id').eq('user_id',uid).eq('app','frete').order('created_at',{ascending:false}).limit(1).maybeSingle());
-   const canStart=!profile.ativo&&profile.status_aprovacao==='PENDENTE'&&!profile.trocar_senha&&profile.perfil==='OPERADOR_GERAL'&&request?.status==='PENDENTE'&&Boolean(request.invite_id||request.access_invite_id);
+   const canStart=!profile.ativo&&profile.status_aprovacao==='PENDENTE'&&!profile.trocar_senha&&profile.perfil==='OPERADOR_GERAL'&&request?.status==='PENDENTE';
    return reply({needs_documents:false,can_start_driver:canStart});
   }
   let draft=ok(await db.from('driver_onboarding').select('*').eq('user_id',uid).maybeSingle());
   const needs=Boolean(draft?.documents_requested)&&['pre_cadastro','pendencia','reprovado'].includes(driver.status_cadastro)&&profile.status_aprovacao!=='APROVADO';
-  if(action==='DRAFT')return reply({needs_documents:needs,driver:{nome:driver.nome,cpf:driver.cpf,telefone:driver.telefone},draft});
+  if(action==='DRAFT')return reply({needs_documents:needs,can_start_driver:!needs&&!profile.ativo&&profile.status_aprovacao==='PENDENTE'&&!profile.trocar_senha&&['pre_cadastro','pendencia','reprovado'].includes(driver.status_cadastro),driver:{nome:driver.nome,cpf:driver.cpf,telefone:driver.telefone},draft});
   if(!needs)return reply({error:'Cadastro não está aberto para edição.'},409);
   if(!draft){draft=ok(await db.from('driver_onboarding').insert({user_id:uid,motorista_id:driver.id,documents_requested:true}).select('*').single());}
   if(action==='UPLOAD'){
