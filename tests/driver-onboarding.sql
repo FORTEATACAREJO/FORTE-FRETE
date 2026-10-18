@@ -12,7 +12,7 @@ begin
  perform public.access_claim_invite(u,code);perform public.access_claim_invite(u,code);
  if (select total_cadastros from public.convites_motorista where id=inv)<>1 then raise exception 'Convite contado mais de uma vez';end if;
  raised:=false;begin update public.motoristas set status_cadastro='aprovado' where id=m;exception when others then raised:=true;end;if not raised then raise exception 'Aprovou motorista sem documentos';end if;
- d:=jsonb_build_object('cnh_number','TEST-CNH','cnh_category','E','cnh_validity','2030-01-01','plate','ABC1D23','capacity',38,'owner_name','Teste Proprietário','owner_document','52998224725','beneficiary_name','Teste Favorecido','beneficiary_document','52998224725','pix_type','CPF','pix_key','52998224725','absent',jsonb_build_object('carreta_1',true,'dolly',true,'carreta_2',true));
+ d:=jsonb_build_object('cnh_number','TEST-CNH','cnh_category','E','cnh_validity','2030-01-01','plate','ABC1D23','capacity',38,'owner_name','Teste Proprietário','owner_whatsapp','11999999999','beneficiary_name','Teste Favorecido','beneficiary_document','52998224725','pix_type','CPF','pix_key','52998224725','absent',jsonb_build_object('carreta_1',true,'dolly',true,'carreta_2',true));
  update public.driver_onboarding set data=d where user_id=u;
  raised:=false;begin perform public.driver_onboarding_submit(u);exception when others then raised:=true;end;if not raised then raise exception 'Aceitou documentos faltantes';end if;
  foreach k in array array['cnh_frente','cavalo','rntrc'] loop
