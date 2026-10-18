@@ -1,3 +1,5 @@
+import {jsPDF} from 'npm:jspdf@4.2.1';
+import {driverPDFs} from './driver-pdf.mjs';
 import {directoryRows,DRIVER_FIELDS} from './directory.mjs';
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Content-Type':'application/json'};
@@ -63,7 +65,15 @@ Deno.serve(async(req)=>{
   const doc=c.modalidadeFrete==='CIF'?null:(state.documentos||[]).find(d=>d.cargaId===c.id&&d.categoria==='COMPROVANTE FRETE'&&d.validationStatus==='VALIDADO'&&d.validadoFinanceiroPor&&d.storagePath);
   if(doc){const {data:blob,error:downloadError}=await vendas.storage.from(doc.storageBucket).download(doc.storagePath);if(downloadError)throw downloadError;paymentPath=p.empresa_id+'/'+c.id+'/'+doc.hash;const {error:uploadError}=await admin.storage.from('vendas-ordens-frete').upload(paymentPath,blob,{upsert:true,contentType:blob.type||'application/pdf'});if(uploadError)throw uploadError;}
   const snapshot={codigo:c.codigo,pedido:c.numeroPedidoFornecedor,fornecedor:c.fornecedor,origem:c.localCarregamento||c.origem,destino:c.destino,dataCarregamento:c.dataCarregamento,motorista:driver.nome,placas:plateList,pesoKg:c.pesoKg,fretePorTon:c.fretePorTon,freteValor:c.freteValor,modalidadeFrete:c.modalidadeFrete,pallet:c.regraPallets||c.pallet,palletQuantidade:c.palletQuantidade,itens:c.itens.map(i=>({produto:i.produto,qtd:i.qtd,pesoKg:i.pesoKg}))};
+  const {data:previous,error:previousError}=await admin.from('vendas_ordens').select('snapshot').eq('empresa_vendas_id',p.empresa_id).eq('carga_vendas_id',c.id).maybeSingle();if(previousError)throw previousError;
+  if(body.action==='PUBLISH'){
+   const pdfs=driverPDFs(jsPDF,state,c);
+   const documents:any={};
+   for(const [kind,pdf] of Object.entries(pdfs)){if(!pdf)continue;const bytes=(pdf as any).output('arraybuffer');const digest=await crypto.subtle.digest('SHA-256',bytes);const hash=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');const path=p.empresa_id+'/'+c.id+'/'+driver.id+'/'+kind+'-'+hash+'.pdf';const upload=await admin.storage.from('vendas-ordens-frete').upload(path,bytes,{upsert:false,contentType:'application/pdf'});if(upload.error)throw upload.error;documents[kind]=path;}
+   Object.assign(snapshot,{documentosMotorista:documents});
+  }else Object.assign(snapshot,{documentosMotorista:previous?.snapshot?.documentosMotorista||{}});
   const at=new Date().toISOString();const {data:receipt,error}=await admin.from('vendas_ordens').upsert({empresa_vendas_id:p.empresa_id,carga_vendas_id:c.id,motorista_id:driver.id,snapshot,documento_frete_path:paymentPath,pagamento_status:paymentPath?'PAGO — COMPROVANTE VALIDADO':c.modalidadeFrete==='CIF'?'CIF — NÃO SE APLICA':'PENDENTE',updated_at:at},{onConflict:'empresa_vendas_id,carga_vendas_id'}).select('id,enviada_em').single();if(error)throw error;
+  if(body.action==='PUBLISH'&&c.freteEventoId){const {data:r,error:requestError}=await vendas.from('fc_frete_solicitacoes').select('id').eq('empresa_id',p.empresa_id).eq('frete_evento_id',c.freteEventoId).single();if(requestError||!r)throw Error('Aceite não localizado no Vendas.');const linked=await vendas.rpc('fc_vincular_pedido_frete',{p_solicitacao:r.id,p_carga_vendas:c.id});if(linked.error)throw linked.error;const confirmed=await admin.rpc('frete_confirmar_integracao',{p_evento:c.freteEventoId,p_solicitacao:r.id,p_carga_vendas:c.id,p_numero_pedido:c.numeroPedidoFornecedor});if(confirmed.error)throw confirmed.error;}
   const paymentSync=await admin.rpc('frete_sincronizar_comprovante',{p_carga_vendas:c.id});if(paymentSync.error)throw paymentSync.error;
   return Response.json({ok:true,id:receipt.id,enviadaEm:receipt.enviada_em,motoristaId:driver.id,comprovanteHash:doc?.hash||null},{headers});
  } catch(e){return Response.json({error:e.message||'Falha na integração.'},{status:400,headers});}

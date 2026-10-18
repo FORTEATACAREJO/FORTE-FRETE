@@ -1,0 +1,27 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs');
+const {PGlite}=require('@electric-sql/pglite');
+test('driver projection and Storage policy expose only current approved driver PDFs',async()=>{
+ const db=new PGlite();
+ await db.exec(`create role anon;create role authenticated;create schema private;create schema auth;create schema storage;
+ create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('test.uid',true),'')::uuid$$;
+ create function private.is_operational() returns boolean language sql stable as $$select current_setting('test.active',true)='yes'$$;
+ create table public.motoristas(id uuid,auth_user_id uuid,status_cadastro text);
+ create table public.usuarios_app(user_id uuid,perfil text);
+ create function private.me_motorista_id() returns uuid language sql stable security definer as $$select id from public.motoristas where auth_user_id=auth.uid()$$;
+ create table public.vendas_ordens(id uuid,motorista_id uuid,snapshot jsonb,updated_at timestamptz);
+ create table storage.objects(name text,bucket_id text);alter table storage.objects enable row level security;
+ grant usage on schema public,private,auth,storage to authenticated;grant select on storage.objects to authenticated;
+ insert into motoristas values('00000000-0000-0000-0000-000000000001','10000000-0000-0000-0000-000000000001','aprovado'),('00000000-0000-0000-0000-000000000002','10000000-0000-0000-0000-000000000002','aprovado');
+ insert into usuarios_app values('10000000-0000-0000-0000-000000000001','MOTORISTA'),('10000000-0000-0000-0000-000000000002','MOTORISTA');
+ insert into vendas_ordens values('20000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000001','{"codigo":"FC1","documentosMotorista":{"ordem":"driver1/order.pdf","romaneio":"driver1/delivery.pdf"},"privado":"supplier-cost"}',now()),('20000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000002','{"codigo":"FC2","documentosMotorista":{"ordem":"driver2/order.pdf"}}',now());
+ insert into storage.objects values('driver1/order.pdf','vendas-ordens-frete'),('driver1/delivery.pdf','vendas-ordens-frete'),('driver2/order.pdf','vendas-ordens-frete'),('supplier/nf.pdf','vendas-ordens-frete'),('driver1/order.pdf','other-bucket');`);
+ const migration=fs.readdirSync('supabase/migrations').find(x=>x.endsWith('_documentos_motorista_carga.sql'));await db.exec(fs.readFileSync('supabase/migrations/'+migration,'utf8'));
+ await db.exec(`set role authenticated;set test.uid='10000000-0000-0000-0000-000000000001';set test.active='yes'`);
+ const result=(await db.query('select public.frete_documentos_motorista() as docs')).rows[0].docs;
+ assert.equal(result.length,1);assert.equal(result[0].codigo,'FC1');assert(!JSON.stringify(result).includes('supplier-cost'));
+ assert.deepEqual((await db.query('select name from storage.objects order by name')).rows.map(x=>x.name),['driver1/delivery.pdf','driver1/order.pdf']);
+ await db.exec(`set test.uid='10000000-0000-0000-0000-000000000002'`);assert.deepEqual((await db.query('select name from storage.objects')).rows.map(x=>x.name),['driver2/order.pdf']);
+ await db.exec(`set test.active='no'`);assert.equal((await db.query('select name from storage.objects')).rows.length,0);
+ await db.exec(`set test.active='yes';reset role;update motoristas set status_cadastro='em_analise';set role authenticated`);assert.equal((await db.query('select public.frete_documentos_motorista() as docs')).rows[0].docs.length,0);assert.equal((await db.query('select name from storage.objects')).rows.length,0);
+ await db.close();
+});
