@@ -7,7 +7,9 @@ Implementação baseada no pacote `forte_frete_cadastro_mobile_work.zip`, inspec
 | Entrada | Preenchimento | Aprovação |
 | --- | --- | --- |
 | Cadastrar como Motorista | Uma tela com dados pessoais, endereço, CNH, veículo/componentes, fotos, proprietário e favorecido | Tipo motorista fixo; operação bloqueada até análise completa |
-| Cadastrar como Funcionário | Uma tela com dados pessoais, endereço e identificação | Usuário não escolhe função; Master/Admin define na aprovação |
+| Empresa (atalho no topo) | Uma tela com dados pessoais, endereço e identificação | Usuário não escolhe função; Master/Admin define na aprovação |
+
+Ajuste incremental do ZIP `forte_frete_ajuste_empresa_topo_work.zip`: atalho pequeno Empresa no topo do login abre diretamente o mesmo cadastro de funcionário, sem botão grande duplicado e sem aviso explicativo adicional. Nenhuma mudança de banco foi necessária para esse ajuste.
 
 Login aceita CPF ou e-mail; a recuperação já existente foi preservada. Não existe seleção de função pelo candidato. Mantido o padrão de senha numérica com seis ou mais dígitos do sistema existente. E-mail passa a ser obrigatório para novos cadastros completos. Endereço e documento do funcionário são persistidos no dossiê privado.
 
@@ -47,3 +49,7 @@ Os testes de navegador usam o código real com API simulada; os testes de banco 
 ## Rollback sem perda de dados
 
 Se o frontend apresentar regressão, retornar o frontend ao commit de produção anterior. Conservar a tabela, os endpoints novos e o bloqueio de aprovação: excluir a tabela ou remover a proteção descartaria rascunhos ou permitiria aprovação incompleta. Cadastros antigos aprovados continuam com seu fluxo existente; novos cadastros completos podem aguardar a correção da interface, sem liberar a operação. Não restaurar uma versão de access-standard que permita criar contas novas fora do dossiê obrigatório. Dados e anexos não devem ser apagados no rollback. O retorno integral do banco depende de revisar os cadastros criados após implantação, especialmente pagamentos por outra forma; preferir corrigir e republicar a interface com os dados preservados.
+
+## Pacote adicional de cinco sistemas recebido
+
+O ZIP `forte_mobile_5_sistemas_telas_instrucoes_work.zip` foi lido durante a implementação. A exceção de navegação Frete (Empresa no topo e Cadastrar como Motorista) está incluída nesta entrega. O pacote também pede alterações em Vendas, Financeiro, Fiscal e Vendas Externas, incluindo rascunhos, layout dos painéis e autorização do aprovador por módulo/estabelecimento em cada operação protegida. Esse escopo é distinto deste PR Frete e ainda não foi implementado nem certificado nos outros módulos. Aprovação em um sistema não deve conceder acesso aos demais; não inferir nem copiar permissões. As referências fornecidas nesse pacote podem conter dados pessoais e não foram adicionadas ao repositório.
