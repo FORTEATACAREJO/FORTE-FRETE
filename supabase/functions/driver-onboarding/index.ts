@@ -82,7 +82,7 @@ Deno.serve(async req=>{
   }
   if(action==='SAVE'){
    if(JSON.stringify(b.data||{}).length>30000)throw Error('Cadastro excede o tamanho permitido.');
-   const data:any={};for(const k of ['plate','capacity','vehicle_type','city','cnh_number','cnh_category','cnh_validity','owner_name','owner_document','beneficiary_name','beneficiary_document','bank','pix_type','pix_key','files','plates','absent'])if(b.data?.[k]!==undefined)data[k]=b.data[k];
+   const data:any={};for(const k of ['plate','capacity','vehicle_type','city','cnh_number','cnh_category','cnh_validity','owner_name','owner_document','owner_whatsapp','beneficiary_name','beneficiary_document','bank','pix_type','pix_key','files','plates','absent'])if(b.data?.[k]!==undefined)data[k]=b.data[k];
    for(const path of Object.values(data.files||{})){if(typeof path!=='string'||!path.startsWith(uid+'/'))throw Error('Anexo não pertence ao seu cadastro.');}
    ok(await db.rpc('driver_onboarding_save',{p_user:uid,p_data:data}));return reply({message:'Rascunho salvo. Você pode continuar depois com CPF e senha.'});
   }
