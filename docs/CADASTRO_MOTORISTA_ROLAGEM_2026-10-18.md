@@ -17,3 +17,5 @@ O formulário do motorista permanece em uma tela com rolagem vertical, seções 
 ## Implantação
 
 Publicar a função driver-onboarding com suas dependências existentes e depois o frontend. O service worker possui nova versão de cache. Não há migração nem mudança de cadastros existentes. Esta revisão não foi implantada em produção e não confirma que o erro relatado pelos motoristas já deixou de ocorrer nos dispositivos reais.
+
+Cadastro público autorizado: botão CADASTRAR SEM CONVITE para motorista e funcionário. Todos continuam inativos e PENDENTES até aprovação administrativa. Testes de navegador partem do endereço sem parâmetros de convite.
