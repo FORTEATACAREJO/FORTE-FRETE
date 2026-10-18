@@ -54,6 +54,7 @@ if(action==="RECOVERY_REQUEST"){
 }
 if(action==="REGISTER"){
 const v=validateRegistration(b);
+if(frete&&!v.email)return reply({error:"Informe um e-mail pessoal para o cadastro completo."},400);
 if(frete&&b.registration_kind!==undefined&&!["MOTORISTA","USUARIO"].includes(b.registration_kind))return reply({error:"Selecione motorista ou funcionário."},400);
 if(v.email==="masterforteatacarejo@gmail.com"||v.email?.endsWith("@acesso.forte.internal"))return reply({error:"Use um e-mail pessoal válido."},400);
 if(!await rate("register:"+v.cpf)||!await rate("register-ip:"+(req.headers.get("x-forwarded-for")||"unknown").split(",")[0],8))return reply({error:"Muitas tentativas. Aguarde um minuto."},429);
@@ -64,16 +65,18 @@ const email=v.email||"cpf."+v.cpf+"@acesso.forte.internal";
 const created=await admin.auth.admin.createUser({email,password:b.password,email_confirm:true,user_metadata:{full_name:v.nome,nome:v.nome}});
 if(created.error||!created.data.user)return reply({error:"Não foi possível criar o cadastro. Confira se o CPF ou e-mail já está cadastrado."},409);
 createdId=created.data.user.id;
+if(frete){const initial:any={};for(const k of ['cep','logradouro','numero','complemento','bairro','cidade','uf','declaracao','city','cnh_number','cnh_category','cnh_validity','vehicle_type','plate','brand','model','year','capacity','owner_name','owner_document','owner_whatsapp','payment_method','beneficiary_name','beneficiary_document','bank','pix_type','pix_key','absent','plates'])if(b.dossier_data?.[k]!==undefined)initial[k]=b.dossier_data[k];if(JSON.stringify(initial).length>30000)throw Error('Cadastro excede o tamanho permitido.');const dossier=await admin.from('registration_dossiers').insert({user_id:createdId,kind:(b.registration_kind||'MOTORISTA')==='MOTORISTA'?'MOTORISTA':'FUNCIONARIO',data:initial});if(dossier.error)throw Error('Falha ao iniciar o formulário completo.');}
 const saved=await admin.rpc("access_register_profile",{p_user:createdId,p_app:app,p_nome:v.nome,p_cpf:v.cpf,p_whatsapp:v.whatsapp,p_birth:v.data_nascimento,p_email:v.email});
 if(saved.error)throw Error("Falha ao salvar cadastro.");
 if(frete&&(b.registration_kind||"MOTORISTA")==="MOTORISTA"){const dossier=await admin.rpc("driver_onboarding_start",{p_user:createdId});if(dossier.error)throw Error("Não foi possível iniciar as etapas obrigatórias do motorista.");}
+
 await audit("CADASTRO_ENVIADO",createdId);createdId=null;
 return reply({status:"PENDENTE",message:"Cadastro enviado para análise. Aguarde aprovação do admin ou master. Entre com CPF e senha para acompanhar."},201);
 }
 if(action==="LOGIN"){
-const cpf=digits(b.cpf);if(!validCpf(cpf)||typeof b.password!=="string"||!b.password||b.password.length>256)return reply({error:"Informe CPF e sua senha cadastrada."},400);
-if(!await rate("login:"+cpf,5))return reply({error:"Muitas tentativas. Aguarde um minuto."},429);
-const p=await admin.from(table).select(idcol).eq("cpf",cpf).limit(2);
+const identifier=String(b.cpf||'').trim().toLowerCase(),byEmail=frete&&identifier.includes('@');const cpf=digits(identifier);if((byEmail?!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(identifier):!validCpf(cpf))||typeof b.password!=="string"||!b.password||b.password.length>256)return reply({error:"Informe CPF e sua senha cadastrada."},400);
+if(!await rate("login:"+(byEmail?identifier:cpf),5))return reply({error:"Muitas tentativas. Aguarde um minuto."},429);
+const p=await admin.from(table).select(idcol).eq(byEmail?"email":"cpf",byEmail?identifier:cpf).limit(2);
 if(p.error||p.data?.length!==1){await audit("LOGIN_RECUSADO");return reply({error:"CPF ou senha inválidos."},401)}
 const user=await admin.auth.admin.getUserById(p.data[0][idcol]);
 const auth=createClient(url,Deno.env.get("SUPABASE_ANON_KEY")!,{auth:{persistSession:false,autoRefreshToken:false}});
@@ -151,6 +154,7 @@ if(!isAdmin)return reply({error:"Somente admin ou master aprovado pode analisar.
 let pending=await admin.from("access_requests").select("id,user_id,app,nome,cpf,whatsapp,email,data_nascimento,created_at").eq("status","PENDENTE").order("created_at");
 if(pending.error)throw Error("Falha ao carregar fila.");
 let items=pending.data||[];
+if(frete&&items.length){const dossiers=await admin.from('registration_dossiers').select('user_id,kind,status').in('user_id',items.map((x:any)=>x.user_id));if(dossiers.error)throw Error('Não foi possível conferir os dossiês.');items=items.map((x:any)=>{const d=(dossiers.data||[]).find((d:any)=>d.user_id===x.user_id);return {...x,registration_kind:d?.kind,dossier_status:d?.status};});}
 if(!fiscal&&!frete){const ids=items.map((x:any)=>x.user_id);if(ids.length){const scoped=await admin.from("fc_perfis").select("user_id").eq("empresa_id",p.empresa_id).in("user_id",ids);if(scoped.error)throw Error("Falha ao conferir empresa.");const allowed=new Set((scoped.data||[]).map((x:any)=>x.user_id));items=items.filter((x:any)=>allowed.has(x.user_id))}}
 const units=fiscal?await admin.from("user_establishments").select("establishment_id,establishments(code)").eq("user_id",uid):{data:[]};
 const resets=await admin.from("access_recovery_requests").select("id,user_id,app,claimed_phone,claimed_birth,created_at").eq("status","PENDENTE").order("created_at");if(resets.error)throw Error("Não foi possível carregar recuperações.");
@@ -184,7 +188,7 @@ const approved=managed?r?.status==="APROVADO":r?r.status==="APROVADO":legacyAllo
 const notes=r?await admin.from("access_notifications").select("id,event,message,created_at").eq("user_id",uid).eq("request_id",r.id).eq("audience","USER").order("created_at",{ascending:false}).limit(5):{data:[]};
 return reply({allowed:Boolean(approved&&active&&!changing),status:r?.status||(approved?"APROVADO":"SEM_SOLICITACAO"),isAdmin,changing,cpf:p.cpf,name:p.full_name||p.nome,notifications:notes.data||[]});
 }catch(error){
-if(admin&&createdId){await admin.from("access_requests").delete().eq("user_id",createdId);await admin.from("access_notifications").delete().eq("user_id",createdId);const fiscal=Deno.env.get("SUPABASE_URL")?.includes("xmfpvvmvdkepmnvtdoio"),frete=Deno.env.get("SUPABASE_URL")?.includes("nkynfboqwfxhhxcsrawl");if(frete)await admin.from("motoristas").delete().eq("auth_user_id",createdId);await admin.from(fiscal?"profiles":frete?"usuarios_app":"fc_perfis").delete().eq(fiscal?"id":"user_id",createdId);await admin.auth.admin.deleteUser(createdId)}
+if(admin&&createdId){await admin.from("access_requests").delete().eq("user_id",createdId);await admin.from("access_notifications").delete().eq("user_id",createdId);const fiscal=Deno.env.get("SUPABASE_URL")?.includes("xmfpvvmvdkepmnvtdoio"),frete=Deno.env.get("SUPABASE_URL")?.includes("nkynfboqwfxhhxcsrawl");if(frete){await admin.from("registration_dossiers").delete().eq("user_id",createdId);await admin.from("driver_onboarding").delete().eq("user_id",createdId);}if(frete)await admin.from("motoristas").delete().eq("auth_user_id",createdId);await admin.from(fiscal?"profiles":frete?"usuarios_app":"fc_perfis").delete().eq(fiscal?"id":"user_id",createdId);await admin.auth.admin.deleteUser(createdId)}
 const message=error instanceof Error?error.message:"Não foi possível concluir. Tente novamente.";return reply({error:message},/^(Informe|CPF|E-mail|A senha)/.test(message)?400:503);
 }
 });
