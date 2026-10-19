@@ -22,6 +22,7 @@ test('complete registration: real SQL validation, approval, drafts, files and ba
  await db.exec(fs.readFileSync(migration,'utf8'));
  await db.exec(fs.readFileSync('supabase/migrations/20261019190536_email_motorista_opcional.sql','utf8'));
  await db.exec(fs.readFileSync('supabase/migrations/20261019190940_proprietario_veiculo_opcional.sql','utf8'));
+ await db.exec(fs.readFileSync('supabase/migrations/20261019203542_cadastro_legado_vinculo_administrativo.sql','utf8'));
  const seed=async(n,kind='FUNCIONARIO')=>{await db.query('insert into auth.users values($1)',[id(n)]);await db.query("insert into usuarios_app(user_id,perfil,email) values($1,$2,'fixture@example.invalid')",[id(n),kind==='MOTORISTA'?'MOTORISTA':'OPERADOR_GERAL']);await db.query("insert into access_requests(user_id,app,status) values($1,'frete','PENDENTE')",[id(n)]);await db.query('insert into registration_dossiers(user_id,kind) values($1,$2)',[id(n),kind]);if(kind==='MOTORISTA'){const r=await db.query("insert into motoristas(auth_user_id,status_cadastro,data_nascimento) values($1,'pre_cadastro','1980-01-01') returning id",[id(n)]);await db.query('insert into driver_onboarding(user_id,motorista_id) values($1,$2)',[id(n),r.rows[0].id]);}};
  const saveData=(n,d,revision=0)=>db.query('select registration_dossier_save($1,$2,$3)',[id(n),d,revision]);
  const submit=n=>db.query('select registration_dossier_submit($1) as result',[id(n)]);
