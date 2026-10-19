@@ -54,7 +54,7 @@ if(action==="RECOVERY_REQUEST"){
 }
 if(action==="REGISTER"){
 const v=validateRegistration(b);
-if(frete&&!v.email)return reply({error:"Informe um e-mail pessoal para o cadastro completo."},400);
+if(frete&&b.registration_kind==="USUARIO"&&!v.email)return reply({error:"Informe um e-mail pessoal para o cadastro completo."},400);
 if(frete&&b.registration_kind!==undefined&&!["MOTORISTA","USUARIO"].includes(b.registration_kind))return reply({error:"Selecione motorista ou funcionário."},400);
 if(v.email==="masterforteatacarejo@gmail.com"||v.email?.endsWith("@acesso.forte.internal"))return reply({error:"Use um e-mail pessoal válido."},400);
 if(!await rate("register:"+v.cpf)||!await rate("register-ip:"+(req.headers.get("x-forwarded-for")||"unknown").split(",")[0],8))return reply({error:"Muitas tentativas. Aguarde um minuto."},429);
