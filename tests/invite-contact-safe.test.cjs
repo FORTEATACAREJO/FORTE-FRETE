@@ -21,7 +21,7 @@ for(const referral of [false,true])test('invitation '+(referral?'driver referral
  const host={innerHTML:'',querySelector:get,querySelectorAll:()=>[]};
  const client={functions:{invoke:async(name,{body})=>{calls.push(body);if(body.action==='LIST')return{data:{invites:[],can_configure:false}};if(body.action==='CAPABILITIES')return{data:{}};if(body.action==='INVITE')return{data:{id:'fixture-invite',link:'https://fixture/?codigo=fixture',recipient_phone:body.whatsapp}};if(body.action==='SEND')return{data:{message:'Enviado em simulação'}};throw Error(body.action)}}};
  const ui=load({readText:async()=>'11999999999'});let closed=false;await ui.renderUserInvites({client,app:'frete',host,referral,onClose:()=>closed=true});
- assert(host.innerHTML.includes('COLAR NÚMERO DO WHATSAPP'));assert(!host.innerHTML.includes('SELECIONAR CONTATO'));
+ assert(host.innerHTML.includes('CONVIDAR MOTORISTA PELO WHATSAPP'));assert(host.innerHTML.includes('CONVIDAR USUÁRIO PELO WHATSAPP'));assert(!host.innerHTML.includes('BUSCAR CONTATO NA AGENDA'));assert(host.innerHTML.includes('COLAR NÚMERO DO WHATSAPP'));assert(!host.innerHTML.includes('SELECIONAR CONTATO'));
  await get('#uiContact').onclick();assert.equal(closed,false);assert.equal(form.elements.whatsapp.value,'11999999999');assert.equal(calls.some(x=>x.action==='SEND'),false);
  form.querySelector=get;await form.onsubmit({preventDefault(){}});assert.equal(calls.filter(x=>x.action==='INVITE').length,1);assert.equal(calls.filter(x=>x.action==='SEND').length,1);assert.equal(calls.find(x=>x.action==='INVITE').whatsapp,'11999999999');assert.equal(closed,false);assert.equal(get('#uiContact').disabled,false);
 });
@@ -36,20 +36,13 @@ test('ambiguous contacts, untrusted links and missing DDD preserve the current p
  const ui=load();for(const text of ['Pessoa\n(11) 99999-9999\n(34) 99920-9335','https://example.invalid/5511999999999','99999-9999','BEGIN:VCARD\nFN:Pessoa Teste\nNOTE:11999999999\nEND:VCARD']){const phone=input(),status={};await ui.pasteInvitePhone(phone,status,{readText:async()=>text});assert.equal(phone.value,'existing');}
 });
 function pickerFields(){return{input:input(),nameInput:{value:'',dispatchEvent(){}},status:{},choices:{innerHTML:'',querySelector(){return this.select||(this.select={})}}};}
-function memory(){const m=new Map();return{getItem:k=>m.get(k),setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)}}
-test('explicit agenda selection fills name and WhatsApp and clears its in-flight marker',async()=>{
- const ui=load(),f=pickerFields(),storage=memory();let called=0;
- const nav={contacts:{select:async(props,opts)=>{called++;assert.equal(props.join(','),'name,tel');assert.equal(opts.multiple,false);return[{name:['Pessoa Agenda'],tel:['+55 (34) 99920-9335']}]}}};
- await ui.selectInviteContact({...f,navigator:nav,storage});assert.equal(called,1);assert.equal(f.input.value,'5534999209335');assert.equal(f.nameInput.value,'Pessoa Agenda');assert.equal(storage.getItem('forte-contact-picker-pending'),undefined);
-});
-test('multiple agenda numbers require explicit choice without overwriting the existing phone',async()=>{
- const ui=load(),f=pickerFields();await ui.selectInviteContact({...f,navigator:{contacts:{select:async()=>[{name:['Pessoa Agenda'],tel:['11999999999','34999209335']}] }},storage:memory()});assert.equal(f.input.value,'existing');assert.match(f.status.textContent,/Escolha/);f.choices.select.onchange({target:{value:'34999209335'}});assert.equal(f.input.value,'34999209335');
-});
-test('unsupported, cancelled and failed native selection keep form data; previous unfinished picker is not retried',async()=>{
- const ui=load();for(const navigator of [{},{contacts:{select:async()=>{const e=Error('cancel');e.name='AbortError';throw e}}},{contacts:{select:async()=>{throw Error('native')}}}]){const f=pickerFields();await ui.selectInviteContact({...f,navigator,storage:memory()});assert.equal(f.input.value,'existing');assert(f.status.textContent);}
- const storage=memory();storage.setItem('forte-contact-picker-pending','1');const f=pickerFields();await ui.selectInviteContact({...f,storage,navigator:{contacts:{select:()=>{throw Error('Must not retry')}}}});assert.match(f.status.textContent,/última abertura/);assert.equal(f.input.value,'existing');
-});
 test('local vCard import fills only one selected contact and rejects bulk or oversized files',async()=>{
  const ui=load(),f=pickerFields(),text='BEGIN:VCARD\nVERSION:3.0\nFN:Pessoa Arquivo\nTEL:11999999999\nEND:VCARD';await ui.importInviteContact({size:text.length,text:async()=>text},f);assert.equal(f.input.value,'11999999999');assert.equal(f.nameInput.value,'Pessoa Arquivo');
  for(const file of [{size:5000,text:async()=>text},{size:text.length*2,text:async()=>text+'\n'+text}]){const bad=pickerFields();await ui.importInviteContact(file,bad);assert.equal(bad.input.value,'existing');}
+});
+
+test('public registration links open WhatsApp recipient selection with the correct entry and no automatic approval',()=>{
+ const ui=load();for(const kind of ['motorista','funcionario']){const u=new URL(ui.whatsappRegistrationLink(kind));assert.equal(u.origin,'https://wa.me');assert.equal(u.pathname,'/');const text=u.searchParams.get('text');assert(text.includes('https://forte-frete.onrender.com/?cadastro='+kind));assert(text.includes('aprovação'));assert(!text.includes('codigo='));}
+ assert.throws(()=>ui.whatsappRegistrationLink('MASTER'));
+ assert(!source.includes('navigator.contacts'));assert(!source.includes('nav.contacts'));assert(!source.includes('uiSearchContact'));assert(!source.includes('selectInviteContact'));
 });
