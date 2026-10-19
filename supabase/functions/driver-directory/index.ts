@@ -14,6 +14,7 @@ Deno.serve(async req=>{
   const caller=createClient(source.url,source.key,{global:{headers:{Authorization:auth}}});
   const {data:{user},error}=await caller.auth.getUser();
   if(error||!user)return Response.json({error:'Entre novamente no sistema.'},{status:401,headers});
+  const grant=await caller.rpc('access_current_module',{p_app:body.source==='vendas'?'vendas':'fiscal'});if(grant.error||grant.data?.allowed!==true)return Response.json({error:'Acesso ou aceite pendente no módulo de origem.'},{status:403,headers});
   if(body.source==='vendas'){
    const {data:p,error}=await caller.from('fc_perfis').select('empresa_id,ativo,status_aprovacao,trocar_senha').eq('user_id',user.id).single();
    if(error||p.empresa_id!=='49832961-0000-4000-8000-000000000001'||!p.ativo||p.status_aprovacao!=='APROVADO'||p.trocar_senha)return Response.json({error:'Acesso não aprovado.'},{status:403,headers});

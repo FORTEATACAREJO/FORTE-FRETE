@@ -1,0 +1,35 @@
+▶ Legal database: vendas
+  ✔ hash, legacy block, unchecked and stale version (25.987349ms)
+  ✔ service-role can lock the version and record only server-verified identity (7.037845ms)
+  ✔ duplicate requests, immutable evidence and module isolation (8.937065ms)
+  ✔ submit without legal acceptance is blocked in SQL (6.998287ms)
+  ✔ canonical Externas key and Financeiro acceptance never grant permission (8.497616ms)
+  ✔ receipt ownership, authorized audit, scope and RLS (19.545785ms)
+  ✔ new version requires acknowledgment and preserves historical receipts (10.063964ms)
+✔ Legal database: vendas (2143.958678ms)
+▶ Legal database: fiscal
+  ✔ hash, legacy block, unchecked and stale version (5.667735ms)
+  ✔ service-role can lock the version and record only server-verified identity (4.063034ms)
+  ✔ duplicate requests, immutable evidence and module isolation (4.69473ms)
+  ✔ submit without legal acceptance is blocked in SQL (5.229788ms)
+  ✔ canonical Externas key and Financeiro acceptance never grant permission (0.0746ms)
+  ✔ receipt ownership, authorized audit, scope and RLS (15.63757ms)
+  ✔ new version requires acknowledgment and preserves historical receipts (6.273236ms)
+✔ Legal database: fiscal (1726.112966ms)
+▶ Legal database: frete
+  ✔ hash, legacy block, unchecked and stale version (4.443949ms)
+  ✔ service-role can lock the version and record only server-verified identity (3.589661ms)
+  ✔ duplicate requests, immutable evidence and module isolation (11.799302ms)
+  ✔ submit without legal acceptance is blocked in SQL (1.738232ms)
+  ✔ canonical Externas key and Financeiro acceptance never grant permission (0.117393ms)
+  ✔ receipt ownership, authorized audit, scope and RLS (11.936875ms)
+  ✔ new version requires acknowledgment and preserves historical receipts (8.307415ms)
+✔ Legal database: frete (1418.102695ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5435.28909

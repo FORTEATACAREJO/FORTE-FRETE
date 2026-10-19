@@ -14,7 +14,8 @@ Deno.serve(async req=>{
   const uid=user.data.user.id,b=await req.json(),action=b.action||'DRAFT';
   const p=ok(await db.from('usuarios_app').select('*').eq('user_id',uid).single());
   const admin=p.ativo&&p.status_aprovacao==='APROVADO'&&!p.trocar_senha&&['MASTER','ADMINISTRADOR'].includes(p.perfil);
-  if(['REVIEW','CORRECTION'].includes(action)){
+  if(['REVIEW','CORRECTION'].includes(action)){const legal=await db.rpc('forte_legal_status',{p_user:uid,p_app:'frete'});if(legal.error||legal.data?.accepted!==true)return reply({error:'Aceite pendente do termo vigente no Frete.'},428);
+
    if(!admin)return reply({error:'Somente Master ou Admin aprovado pode revisar.'},403);
    if(action==='CORRECTION')return reply(ok(await db.rpc('registration_dossier_correction',{p_actor:uid,p_user:b.user_id,p_reason:b.reason})));
    const dossier=ok(await db.from('registration_dossiers').select('*').eq('user_id',b.user_id).maybeSingle());

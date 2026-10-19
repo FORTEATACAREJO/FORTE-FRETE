@@ -17,7 +17,8 @@ Deno.serve(async request => {
     const jwt = authorization.replace(/^Bearer\s+/i,'');
     const {data,error} = await db.auth.getUser(jwt);
     if (error || !data.user) return reply({error:'Sessão inválida. Entre novamente.'},401);
-    const fiscal = ref === 'xmfpvvmvdkepmnvtdoio',frete = ref === 'nkynfboqwfxhhxcsrawl';
+    const legal=await db.rpc('forte_legal_status',{p_user:data.user.id,p_app:'frete'});if(legal.error||legal.data?.accepted!==true)return reply({error:'Aceite pendente do termo vigente no Frete.'},428);
+const fiscal = ref === 'xmfpvvmvdkepmnvtdoio',frete = ref === 'nkynfboqwfxhhxcsrawl';
     const profile = await db.from(fiscal?'profiles':frete?'usuarios_app':'fc_perfis').select('*').eq(fiscal?'id':'user_id',data.user.id).maybeSingle();
     if (profile.error || !isVaultMaster(profile.data)) return reply({error:'Somente Master ativo e aprovado pode administrar o cofre.'},403);
     // getUser validated this token. The database additionally checks that this session still exists.

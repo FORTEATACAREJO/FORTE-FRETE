@@ -9,7 +9,8 @@ Deno.serve(async req=>{
   const admin=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
   const user=await admin.auth.getUser((req.headers.get("authorization")||"").replace(/^Bearer\s+/i,""));
   if(user.error||!user.data.user)return reply({error:"SESSÃO INVÁLIDA."},401);
-  const caller=await admin.from("usuarios_app").select("perfil,ativo,trocar_senha,status_aprovacao").eq("user_id",user.data.user.id).single();
+  const legal=await admin.rpc('forte_legal_status',{p_user:user.data.user.id,p_app:'frete'});if(legal.error||legal.data?.accepted!==true)return reply({error:'Aceite pendente do termo vigente no Frete.'},428);
+const caller=await admin.from("usuarios_app").select("perfil,ativo,trocar_senha,status_aprovacao").eq("user_id",user.data.user.id).single();
   if(caller.error||!caller.data?.ativo||caller.data.status_aprovacao!=="APROVADO"||caller.data.trocar_senha||!["MASTER","ADMINISTRADOR"].includes(caller.data.perfil))return reply({error:"ACESSO EXCLUSIVO DO ADMINISTRADOR."},403);
   const b=await req.json(),nome=String(b.nome||"").trim(),cpf=String(b.cpf||"").replace(/\D/g,""),email=String(b.email||"").trim().toLowerCase(),perfil=String(b.perfil||"");
   let whatsapp=String(b.whatsapp||"").replace(/\D/g,"");if(/^\d{10,11}$/.test(whatsapp))whatsapp="55"+whatsapp;

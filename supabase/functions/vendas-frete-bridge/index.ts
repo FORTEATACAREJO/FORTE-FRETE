@@ -12,6 +12,7 @@ Deno.serve(async(req)=>{
   const vendas=createClient(VENDAS_URL,VENDAS_KEY,{global:{headers:{Authorization:auth}}});
   const {data:{user},error:authError}=await vendas.auth.getUser();if(authError||!user)return Response.json({error:'Sessão do Forte Vendas inválida.'},{status:401,headers});
   const {data:p,error:profileError}=await vendas.from('fc_perfis').select('empresa_id,perfil,permissoes,ativo,status_aprovacao,trocar_senha').eq('user_id',user.id).single();
+  const grant=await vendas.rpc('access_current_module',{p_app:'vendas'});if(grant.error||!grant.data?.allowed)return Response.json({error:'Aprovação no Forte Vendas é obrigatória.'},{status:403,headers});if(p)p.perfil=grant.data.role;
   if(profileError||p.empresa_id!==EMPRESA_FORTE||!p.ativo||p.status_aprovacao!=='APROVADO'||p.trocar_senha||!['MASTER','ADMINISTRADOR','OPERADOR_GERAL','VENDEDOR_INTERNO'].includes(p.perfil))return Response.json({error:'Acesso à integração não autorizado.'},{status:403,headers});
   if(!['MASTER','ADMINISTRADOR'].includes(p.perfil)&&p.permissoes?.vendas!==true&&p.permissoes?.['carga-direta']!==true&&p.permissoes?.['VENDAS E COMPRAS']?.editar!==true)throw new Error('Sem permissão comercial para a integração.');
   const permission=await vendas.rpc('fc_operacao_autorizada');if(permission.error||permission.data!==true)return Response.json({error:'Aplicativo sem aprovação operacional.'},{status:403,headers});

@@ -93,6 +93,14 @@ return reply({access_token:logged.data.session.access_token,refresh_token:logged
 const token=(req.headers.get("authorization")||"").replace(/^Bearer\s+/i,""),u=await admin.auth.getUser(token);
 if(u.error||!u.data.user)return reply({error:"Sessão inválida. Entre novamente."},401);
 const uid=u.data.user.id,p=await readProfile(uid);if(!p)return reply({error:"Cadastro não localizado."},403);
+if(action==='LEGAL_STATUS'||action==='LEGAL_ACCEPT'||action==='LEGAL_RECEIPTS'){
+ const result=action==='LEGAL_STATUS'?await admin.rpc('forte_legal_status',{p_user:uid,p_app:app}):action==='LEGAL_ACCEPT'?await admin.rpc('forte_legal_accept',{p_user:uid,p_app:app,p_version:b.version,p_hash:b.hash,p_confirmed:b.confirmed===true,p_source:req.headers.get('origin')}):await admin.rpc('forte_legal_receipts',{p_actor:uid,p_target:typeof b.user_id==='string'?b.user_id:uid,p_app:app});
+ if(result.error)return reply({error:result.error.message},400);return reply(action==='LEGAL_RECEIPTS'?{receipts:result.data}:result.data);
+}
+// Draft editing, password recovery and status remain available before acknowledgment.
+if(!['STATUS','SET_PASSWORD','REGISTRATION_DRAFT','REGISTRATION_SAVE','REQUEST_ACCESS'].includes(action)){
+ const legal=await admin.rpc('forte_legal_status',{p_user:uid,p_app:app});if(legal.error||legal.data?.accepted!==true)return reply({error:'Aceite pendente do termo vigente neste módulo.'},428);
+}
 const isAdmin=Boolean((p.active??p.ativo)&&(!p.status_aprovacao||p.status_aprovacao==="APROVADO")&&!p.must_change_password&&!p.trocar_senha&&["MASTER","ADMIN","ADMINISTRADOR","ULTRA_ADMIN"].includes(p.role||p.perfil));
 if(action==="RECOVERY_REVIEW"){
  if(!["ATENDIDO","RECUSADO"].includes(b.decision))return reply({error:"Informe uma decisão válida para a recuperação."},400);
@@ -186,7 +194,7 @@ if(action!=="STATUS")return reply({error:"Ação inválida."},400);
 const active=Boolean(p.active??p.ativo)&&(!p.status_aprovacao||p.status_aprovacao==="APROVADO"),changing=Boolean(p.must_change_password||p.trocar_senha);
 const approved=managed?r?.status==="APROVADO":r?r.status==="APROVADO":legacyAllowed(p,app);
 const notes=r?await admin.from("access_notifications").select("id,event,message,created_at").eq("user_id",uid).eq("request_id",r.id).eq("audience","USER").order("created_at",{ascending:false}).limit(5):{data:[]};
-return reply({allowed:Boolean(approved&&active&&!changing),status:r?.status||(approved?"APROVADO":"SEM_SOLICITACAO"),isAdmin,changing,cpf:p.cpf,name:p.full_name||p.nome,notifications:notes.data||[]});
+return reply({allowed:Boolean(approved&&active&&!changing&&(await admin.rpc('forte_legal_status',{p_user:uid,p_app:app})).data?.accepted===true),status:r?.status||(approved?"APROVADO":"SEM_SOLICITACAO"),isAdmin,changing,cpf:p.cpf,name:p.full_name||p.nome,notifications:notes.data||[]});
 }catch(error){
 if(admin&&createdId){await admin.from("access_requests").delete().eq("user_id",createdId);await admin.from("access_notifications").delete().eq("user_id",createdId);const fiscal=Deno.env.get("SUPABASE_URL")?.includes("xmfpvvmvdkepmnvtdoio"),frete=Deno.env.get("SUPABASE_URL")?.includes("nkynfboqwfxhhxcsrawl");if(frete){await admin.from("registration_dossiers").delete().eq("user_id",createdId);await admin.from("driver_onboarding").delete().eq("user_id",createdId);}if(frete)await admin.from("motoristas").delete().eq("auth_user_id",createdId);await admin.from(fiscal?"profiles":frete?"usuarios_app":"fc_perfis").delete().eq(fiscal?"id":"user_id",createdId);await admin.auth.admin.deleteUser(createdId)}
 const message=error instanceof Error?error.message:"Não foi possível concluir. Tente novamente.";return reply({error:message},/^(Informe|CPF|E-mail|A senha)/.test(message)?400:503);
