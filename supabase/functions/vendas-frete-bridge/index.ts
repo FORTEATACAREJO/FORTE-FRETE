@@ -18,6 +18,7 @@ Deno.serve(async(req)=>{
   const permission=await vendas.rpc('fc_operacao_autorizada');if(permission.error||permission.data!==true)return Response.json({error:'Aplicativo sem aprovação operacional.'},{status:403,headers});
   const admin=createClient(Deno.env.get('SUPABASE_URL')!,Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   const body=await req.json();
+  if(body.action==='FREIGHT_RATES'){const result=await admin.from('frete_tarifas').select('id,origem,destino,valor_por_t,ativa,updated_at').eq('ativa',true).order('origem');if(result.error)throw result.error;return Response.json({tarifas:result.data||[]},{headers});}
   if(body.action==='OPERATION_SNAPSHOT'){
    const readAll=async(table:string,fields:string,order:string)=>{const rows=[];for(let offset=0;;offset+=500){const result=await admin.from(table).select(fields).order(order).range(offset,offset+499);if(result.error)throw result.error;rows.push(...(result.data||[]));if((result.data||[]).length<500)return rows;}};
    const [loads,trips,users,driverNames]=await Promise.all([
