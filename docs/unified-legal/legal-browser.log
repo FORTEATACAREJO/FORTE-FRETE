@@ -1,0 +1,15 @@
+PASS frete 320px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS frete 390px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS frete 820px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS vendas 320px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS vendas 390px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS vendas 820px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS financeiro 320px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS financeiro 390px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS financeiro 820px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS fiscal 320px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS fiscal 390px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS fiscal 820px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS venda-externa 320px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS venda-externa 390px: legacy gate, checkbox, term, network retry, receipt, revision and approval
+PASS venda-externa 820px: legacy gate, checkbox, term, network retry, receipt, revision and approval

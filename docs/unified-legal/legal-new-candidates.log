@@ -1,0 +1,15 @@
+PASS vendas 320px: public registration, backend draft/resume, module status and revoked UI
+PASS vendas 360px: public registration, backend draft/resume, module status and revoked UI
+PASS vendas 390px: public registration, backend draft/resume, module status and revoked UI
+PASS vendas 820px: public registration, backend draft/resume, module status and revoked UI
+PASS financeiro 320px: public registration, backend draft/resume, module status and revoked UI
+PASS financeiro 360px: public registration, backend draft/resume, module status and revoked UI
+PASS financeiro 390px: public registration, backend draft/resume, module status and revoked UI
+PASS financeiro 820px: public registration, backend draft/resume, module status and revoked UI
+PASS venda-externa 320px: public registration, backend draft/resume, module status and revoked UI
+PASS venda-externa 360px: public registration, backend draft/resume, module status and revoked UI
+PASS venda-externa 390px: public registration, backend draft/resume, module status and revoked UI
+PASS venda-externa 820px: public registration, backend draft/resume, module status and revoked UI
+PASS fiscal 320px: public registration, backend draft/resume, module status and revoked UI
+PASS fiscal 360px: public registration, backend draft/resume, module status and revoked UI
+PASS fiscal 390px: public registration, backend draft/resume, module status and revoked UI

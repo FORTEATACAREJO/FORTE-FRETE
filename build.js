@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const files = ['forte-ui.css', 'mobile-approved.css', 'mobile-dashboard.js', 'atendimento.js', 'privacy-center.js', 'privacidade.html', 'suporte.html', 'excluir-conta.html', 'icon-192.png', 'icon-512.png', 'index.html', 'access-standard.js', 'driver-onboarding.js', 'user-invites.js', 'integration-vault.js', 'forte-notifications.js', 'forte-notification-worker.js', 'notification-bridge.js', 'notification-bridge.html', 'profiles.js', 'app.js', 'frete-driver.js', 'frete-loads-admin.js', 'gmail-central.js', 'registration.js', 'export-cadastros.js', 'favicon.svg', 'manifest.webmanifest', 'sw.js'];
+const files = ['termo-unificado.html', 'legal-acceptance.js', 'forte-ui.css', 'mobile-approved.css', 'mobile-dashboard.js', 'atendimento.js', 'privacy-center.js', 'privacidade.html', 'suporte.html', 'excluir-conta.html', 'icon-192.png', 'icon-512.png', 'index.html', 'access-standard.js', 'driver-onboarding.js', 'registration-dossier.js', 'user-invites.js', 'integration-vault.js', 'forte-notifications.js', 'forte-notification-worker.js', 'notification-bridge.js', 'notification-bridge.html', 'profiles.js', 'app.js', 'frete-driver.js', 'frete-loads-admin.js', 'gmail-central.js', 'registration.js', 'export-cadastros.js', 'favicon.svg', 'manifest.webmanifest', 'sw.js'];
 const dist = path.resolve('dist');
 fs.mkdirSync(dist, { recursive: true });
 for (const file of files) {

@@ -57,9 +57,9 @@ async function edge(name,body,state={}){
  assert.equal(profile.p_app,'frete');assert.equal(profile.p_birth,signup.data_nascimento);
  assert.equal('perfil' in profile,false);assert.equal('ativo' in profile,false);
  assert.ok(created.writes.some(w=>w.table==='access_audit'&&w.payload.event==='CADASTRO_ENVIADO'));
- const optionalEmail=await edge('register-driver-invite',{...signup,email:''});assert.equal(optionalEmail.status,201);
- assert.equal(optionalEmail.writes.find(w=>w.rpc==='access_register_profile').payload.p_email,null);
- assert.equal(optionalEmail.writes.find(w=>w.auth==='create').payload.email,'cpf.'+signup.cpf+'@acesso.forte.internal');
+ const missingEmail=await edge('register-driver-invite',{...signup,email:''});assert.equal(missingEmail.status,400);
+ assert.ok(!missingEmail.writes.some(w=>w.auth==='create'));
+ assert.equal(created.writes.find(w=>w.table==='registration_dossiers'&&w.action==='insert').payload.kind,'MOTORISTA');
  const cleanup=await edge('register-driver-invite',signup,{failProfile:true});assert.equal(cleanup.status,503);assert.ok(cleanup.writes.some(w=>w.auth==='delete'&&w.id==='new-user'));
  const blocked=await edge('login-cpf',{cpf:signup.cpf,password:signup.password},{account:{user_id:'test-user',ativo:false,status_aprovacao:'REPROVADO',perfil:'MOTORISTA'}});assert.equal(blocked.status,401);assert.ok(!blocked.writes.some(w=>w.auth==='login'));
  const pending={user_id:'test-user',ativo:false,status_aprovacao:'PENDENTE',perfil:'MOTORISTA',email:signup.email,whatsapp:signup.whatsapp};
@@ -67,5 +67,5 @@ async function edge(name,body,state={}){
  const password=await edge('set-password',{password:'123456789'},{account:pending});assert.equal(password.status,200);assert.deepEqual(JSON.parse(JSON.stringify(password.writes.find(w=>w.table==='usuarios_app').payload)),{trocar_senha:false});
  assert.equal((await edge('set-password',{password:'123456789'},{account:{ativo:false,status_aprovacao:'REPROVADO'}})).status,403);
  const mismatch=await edge('recover-password-email',{identificador:signup.cpf,canal:'email',email:'wrong@example.invalid'});assert.equal(mismatch.status,200);assert.ok(!mismatch.writes.some(w=>w.auth==='email_recovery'));
- console.log('PASS: numeric 6+; optional email; mandatory birth; forwarded registration; pending access only; no privilege injection; registration cleanup; rejection; recovery contact match; password reset preserves approval. No messages sent.');
+ console.log('PASS: numeric 6+; required email in public Frete signup; mandatory birth; forwarded registration; pending access only; no privilege injection; registration cleanup; rejection; recovery contact match; password reset preserves approval. No messages sent.');
 })().catch(error=>{console.error(error);process.exit(1)});

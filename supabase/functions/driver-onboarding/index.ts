@@ -19,7 +19,8 @@ Deno.serve(async req=>{
   const driver=ok(await db.from('motoristas').select('*').eq('auth_user_id',uid).maybeSingle());
   const actor=inviteActor(profile,driver);
   const admin=profile.ativo&&profile.status_aprovacao==='APROVADO'&&!profile.trocar_senha&&['MASTER','ADMINISTRADOR'].includes(profile.perfil);
-  if(['INVITE','SEND','INVITES','TEMPLATES','CONFIGURE'].includes(action)){
+  if(['INVITE','SEND','INVITES','TEMPLATES','CONFIGURE'].includes(action)){const legal=await db.rpc('forte_legal_status',{p_user:uid,p_app:'frete'});if(legal.error||legal.data?.accepted!==true)return reply({error:'Aceite pendente do termo vigente no Frete.'},428);
+
    if(!actor||(['CONFIGURE','TEMPLATES'].includes(action)&&!actor.admin))return reply({error:'Convites exigem motorista aprovado ou administração; a configuração Business é exclusiva da administração.'},403);
    if(action==='CONFIGURE'){
     const t=String(b.token||''),p=String(b.phone_id||''),w=String(b.waba_id||''),name='forte_frete_convite';
