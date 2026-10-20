@@ -1,5 +1,5 @@
 importScripts('/forte-notification-worker.js?v=20261005-1');
-const CACHE="forte-frete-mobile-20261020-ordem-sem-valores-18";
+const CACHE="forte-frete-mobile-20261020-aprovacao-contraste-19";
 const CORE=['/legal-acceptance.js','/termo-unificado.html','/forte-ui.css','/mobile-approved.css','/mobile-dashboard.js','/','/index.html','/access-standard.js','/registration-dossier.js','/driver-onboarding.js','/profiles.js','/app.js','/frete-driver.js','/frete-loads-admin.js','/registration.js','/export-cadastros.js','/manifest.webmanifest','/favicon.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
