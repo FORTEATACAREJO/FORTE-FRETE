@@ -4,6 +4,7 @@ const {completionInviteProblem,completionIssues,fillCompletionForm}=context.modu
 test('completion invitations require a valid document, contact and unlinked pending driver',()=>{
  const m={cpf:'529.982.247-25',telefone:'(11) 99999-9999',status_cadastro:'legado'};assert.equal(completionInviteProblem(m),'');
  for(const patch of [{cpf:null},{cpf:'11111111111'},{telefone:'99999-9999'},{auth_user_id:'existing'},{status_cadastro:'aprovado'}])assert(completionInviteProblem({...m,...patch}));
+ assert.equal(completionIssues({status_cadastro:'aprovado',dados_legados:{pendenciasCadastro:['CPF']}}).length,0);
  assert.equal(completionIssues({dados_legados:{pendenciasCadastro:['E-mail','WhatsApp do proprietário','Conferir placas']}}).join(','),'Conferir placas');
 });
 test('imported draft fills empty fields and component plates without replacing user edits or accepting files and declarations',()=>{

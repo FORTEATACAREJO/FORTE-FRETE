@@ -11,6 +11,7 @@ export function completionInviteProblem(driver){
  return '';
 }
 export function completionIssues(driver){
+ if(driver.status_cadastro==='aprovado')return [];
  const issues=driver.dados_legados?.pendenciasCadastro;
  return Array.isArray(issues)?issues.filter(x=>typeof x==='string'&&!/^(e-?mail|nome do proprietário|whatsapp do proprietário)$/i.test(x.trim())):[];
 }
