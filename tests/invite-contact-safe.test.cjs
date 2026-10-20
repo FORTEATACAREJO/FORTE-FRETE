@@ -1,9 +1,9 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),{transformSync}=require('esbuild');
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),{buildSync}=require('esbuild');
 const source=fs.readFileSync('user-invites.js','utf8');
 function load(clipboard){
  const navigator={clipboard};Object.defineProperty(navigator,'contacts',{get(){throw Error('Native contact picker must never be touched');}});
  const context={module:{exports:{}},exports:{},navigator,Event,Response,URL,location:{origin:'https://fixture',pathname:'/'},FormData:class extends Map{constructor(form){super(Object.entries(form.elements).map(([k,v])=>[k,v.value]));}}};context.exports=context.module.exports;
- vm.runInNewContext(transformSync(source,{loader:'js',format:'cjs'}).code,context);return context.module.exports;
+ vm.runInNewContext(buildSync({entryPoints:['user-invites.js'],bundle:true,format:'cjs',write:false}).outputFiles[0].text,context);return context.module.exports;
 }
 const input=()=>({value:'existing',focus(){this.focused=true},dispatchEvent(e){this.event=e}});
 test('pastes formatted WhatsApp without opening the native contacts picker',async()=>{

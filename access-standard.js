@@ -83,7 +83,8 @@ async function registerUnified(values){
  const payload={dossier_version:1,dossier_data:values.dossier_data,registration_kind:values.registration_kind};for(const k of ['cpf','nome','data_nascimento','email','whatsapp','password'])payload[k]=values[k];
  const result=await call('REGISTER',payload);rememberCpf(payload.cpf);
  try{const logged=await call('LOGIN',{cpf:payload.cpf,password:payload.password});const auth=await accessTimeout(client.auth.setSession({access_token:logged.access_token,refresh_token:logged.refresh_token}));if(auth.error)throw auth.error;}catch{throw Error('Cadastro salvo. Volte ao login e entre com CPF ou e-mail e senha para retomar, sem cadastrar novamente.');}
- if(genericInvitation||driverInvite){try{if(genericInvitation)await inviteCall(client,app,'CLAIM',{codigo:invitationParams.get('codigo')});else await onboardingCall(client,'CLAIM',{codigo:invitationParams.get('codigo')||''});}catch{}}
+ if(genericInvitation||driverInvite){try{if(genericInvitation)await inviteCall(client,app,'CLAIM',{codigo:invitationParams.get('codigo')});else await onboardingCall(client,'CLAIM',{codigo:invitationParams.get('codigo')||''});}catch(e){result.completion_warning=e.message;}}
+ if(genericInvitation&&app==='frete')result.completion=await dossierCall(client,'DRAFT');
  return result;
 }
 async function refreshQueue(force=false){

@@ -30,13 +30,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - run: node --test tests/invite-driver-stage.test.cjs tests/acceptance-edge.test.cjs tests/legacy-trip-edge.test.cjs tests/private-loads.test.cjs tests/auth-regression.cjs tests/frontend-regression.cjs tests/payment-regression.cjs tests/build-dependencies.cjs tests/export-regression.cjs tests/deletion-review-edge.cjs tests/access-standard/admin-edge.test.cjs tests/driver-referrals.mjs
+      - run: node --test tests/driver-completion-invites.test.cjs tests/driver-completion-policy.test.cjs tests/invite-contact-safe.test.cjs tests/legacy-registration.test.cjs tests/registration-dossier.edge.test.cjs tests/invite-driver-stage.test.cjs tests/acceptance-edge.test.cjs tests/legacy-trip-edge.test.cjs tests/private-loads.test.cjs tests/auth-regression.cjs tests/frontend-regression.cjs tests/payment-regression.cjs tests/build-dependencies.cjs tests/export-regression.cjs tests/deletion-review-edge.cjs tests/access-standard/admin-edge.test.cjs tests/driver-referrals.mjs
       - name: Concurrent acceptance in independent database sessions
         run: bash tests/private-loads-concurrency.sh
       - name: Install browser for isolated UI tests
         run: npx playwright install --with-deps chromium
       - name: Test operation modules and visual proposal
-        run: node tests/approval-notice.browser.cjs && node tests/registration-paths.browser.cjs && node tests/user-approval-save.browser.cjs && node tests/private-loads.browser.cjs && node tests/mobile-shell.browser.cjs && node tests/mobile-prototype.browser.cjs
+        run: node tests/driver-completion.browser.cjs && node tests/approval-notice.browser.cjs && node tests/registration-paths.browser.cjs && node tests/user-approval-save.browser.cjs && node tests/private-loads.browser.cjs && node tests/mobile-shell.browser.cjs && node tests/mobile-prototype.browser.cjs
       - uses: actions/upload-artifact@v4
         with:
           name: ForteFrete-Proposta-Mobile
