@@ -1,3 +1,4 @@
+import {currentFreightReceipt} from './receipt.mjs';
 import {directoryRows,DRIVER_FIELDS} from './directory.mjs';
 import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.57.4';
 const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Content-Type':'application/json'};
@@ -62,7 +63,7 @@ Deno.serve(async(req)=>{
   if(String(c.regraPallets||'').startsWith('Solicitar')&&!c.liberacaoPalletsFornecedor?.evidencia)throw new Error('Registre a autorização de pallets do fornecedor antes de enviar a ordem.');
   const plateList=[vehicle.placa,...(vehicle.componentes||[]).map(v=>v.placa)].filter(Boolean);if(c.placas?.[0]!==vehicle.placa)throw new Error('Conjunto mudou. Sincronize os motoristas e revise a ordem.');
   let paymentPath=null;
-  const doc=c.modalidadeFrete==='CIF'?null:(state.documentos||[]).find(d=>d.cargaId===c.id&&d.categoria==='COMPROVANTE FRETE'&&d.validationStatus==='VALIDADO'&&d.validadoFinanceiroPor&&d.storagePath);
+  const doc=currentFreightReceipt(state,c);
   if(doc){const {data:blob,error:downloadError}=await vendas.storage.from(doc.storageBucket).download(doc.storagePath);if(downloadError)throw downloadError;paymentPath=p.empresa_id+'/'+c.id+'/'+doc.hash;const {error:uploadError}=await admin.storage.from('vendas-ordens-frete').upload(paymentPath,blob,{upsert:true,contentType:blob.type||'application/pdf'});if(uploadError)throw uploadError;}
   const snapshot={codigo:c.codigo,pedido:c.numeroPedidoFornecedor,fornecedor:c.fornecedor,origem:c.localCarregamento||c.origem,destino:c.destino,dataCarregamento:c.dataCarregamento,motorista:driver.nome,placas:plateList,pesoKg:c.pesoKg,fretePorTon:c.fretePorTon,freteValor:c.freteValor,modalidadeFrete:c.modalidadeFrete,pallet:c.regraPallets||c.pallet,palletQuantidade:c.palletQuantidade,itens:c.itens.map(i=>({produto:i.produto,qtd:i.qtd,pesoKg:i.pesoKg}))};
   const at=new Date().toISOString();const {data:receipt,error}=await admin.from('vendas_ordens').upsert({empresa_vendas_id:p.empresa_id,carga_vendas_id:c.id,motorista_id:driver.id,snapshot,documento_frete_path:paymentPath,pagamento_status:paymentPath?'PAGO — COMPROVANTE VALIDADO':c.modalidadeFrete==='CIF'?'CIF — NÃO SE APLICA':'PENDENTE',updated_at:at},{onConflict:'empresa_vendas_id,carga_vendas_id'}).select('id,enviada_em').single();if(error)throw error;
