@@ -1,0 +1,23 @@
+const fs=require('node:fs'),{spawn,execFileSync}=require('node:child_process'),assert=require('node:assert/strict');
+if(!/^forte_test_/.test(process.env.PGDATABASE||''))throw Error('Use only a disposable forte_test_* database');
+const id=n=>'00000000-0000-4000-8000-'+String(n).padStart(12,'0');
+const sql=text=>execFileSync('psql',['-X','-qAt','-v','ON_ERROR_STOP=1'],{input:text,encoding:'utf8'}).trim();
+const race=text=>new Promise(resolve=>{const p=spawn('psql',['-X','-qAt','-v','ON_ERROR_STOP=1']);let out='',err='';p.stdout.on('data',v=>out+=v);p.stderr.on('data',v=>err+=v);p.on('close',code=>resolve({code,out,err}));p.stdin.end(text);});
+(async()=>{
+ sql(fs.readFileSync('tests/independent-registration-fixture.sql','utf8'));
+ sql(fs.readFileSync('supabase/migrations/20261003203943_validar_documento_favorecido.sql','utf8'));
+ sql(fs.readFileSync('supabase/migrations/20261018205947_cadastro_unico_mobile.sql','utf8'));
+ sql(fs.readFileSync('supabase/migrations/20261020232538_independent_driver_vehicle_reviews.sql','utf8'));
+ for(const n of [1,2,99])sql(`insert into auth.users values('${id(n)}');insert into usuarios_app(user_id,perfil,ativo,status_aprovacao) values('${id(n)}','${n===99?'MASTER':'MOTORISTA'}',true,'APROVADO');`);
+ for(const n of [1,2])sql(`insert into motoristas(id,auth_user_id,nome,status_cadastro,data_nascimento,cnh_registro,categoria_cnh,validade_cnh) values('${id(n)}','${id(n)}','Fictício','aprovado','1980-01-01','12345678901','E','2035-01-01');insert into storage.objects values('motorista-documentos','${id(n)}/cnh','{"mimetype":"application/pdf","size":100}');insert into documentos_motorista values('${id(n)}','cnh_frente','${id(n)}/cnh');`);
+ sql(`insert into veiculos_motorista(id,ativo,placa,marca_modelo,ano_fabricacao,capacidade_efetiva_t,componentes,status_aprovacao) values('${id(10)}',true,'TST1A23','Teste',2020,38,'[]','PENDENTE');`);
+ for(const kind of ['cavalo','rntrc','foto_frente','foto_lateral'])sql(`insert into storage.objects values('motorista-documentos','${id(1)}/${kind}','{"mimetype":"image/jpeg","size":100}');insert into documentos_veiculo values('${id(10)}','${kind}','${id(1)}/${kind}');`);
+ sql(`select vehicle_registration_review('${id(99)}','${id(10)}','APROVADO');`);
+ const link=driver=>`begin;set local statement_timeout='15s';select vehicle_registration_link('${id(99)}','${id(10)}','${id(driver)}');select pg_sleep(0.5);commit;`;
+ const results=await Promise.all([race(link(1)),race(link(2))]);assert.equal(results.filter(r=>r.code===0).length,1,JSON.stringify(results));assert(results.find(r=>r.code!==0).err.includes('Desvincule'));
+ const driver=results[0].code===0?1:2;assert.equal(sql('select motorista_id from veiculos_motorista'),id(driver));assert.equal(sql('select count(*) from motorista_veiculo_vinculos where encerrado_em is null'),'1');sql(link(driver));assert.equal(sql('select count(*) from motorista_veiculo_vinculos'),'1');
+ sql(`insert into viagens(veiculo_id,status) values('${id(10)}','em_viagem');`);
+ const rejected=await race(`select vehicle_registration_link('${id(99)}','${id(10)}','${id(driver)}',true,'Troca solicitada');`);assert.notEqual(rejected.code,0);assert(rejected.err.includes('viagem em andamento'));
+ assert.equal(sql('select count(*) from motorista_veiculo_vinculos where encerrado_em is null'),'1');assert.equal(sql('select veiculo_id from viagens'),id(10));
+ console.log('PASS independent PostgreSQL sessions: one explicit vehicle binding, safe retry and active-trip protection');
+})().catch(e=>{console.error(e);process.exit(1)});
