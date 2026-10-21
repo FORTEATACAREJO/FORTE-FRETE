@@ -24,6 +24,7 @@ if(!admin&&!approvedDriver)return reply({error:'Convites exigem administração 
   if(action==='LIST'){return reply({invites:ok(await db.from('access_invites').select('id,token,app,recipient_phone,recipient_name,expires_at,created_at,status,error_message,claimed_at').eq('app',app).eq('created_by',uid).order('created_at',{ascending:false}).limit(30)),can_configure:master});}
   if(action==='INVITE'){
    let phone=String(b.whatsapp||'').replace(/\D/g,'');if(/^\d{10,11}$/.test(phone))phone='55'+phone;if(!/^55[1-9]\d[2-9]\d{7,8}$/.test(phone))throw Error('Informe WhatsApp com DDD.');
+   if(b.driver_id){if(!frete||app!=='frete'||!admin)return reply({error:'Somente administração aprovada do Frete pode convidar para completar cadastro.'},403);const i=ok(await db.rpc('driver_completion_invite_create',{p_actor:uid,p_driver:b.driver_id,p_phone:phone}));return reply({...i,link:targets.frete+'?cadastro=convite&convite=1&codigo='+i.token});}
    const i=ok(await db.from('access_invites').insert({app,created_by:uid,recipient_phone:phone,recipient_name:String(b.nome||'').trim().slice(0,100)||null}).select('id,token').single());return reply({...i,recipient_phone:phone,link:targets[app]+'?cadastro=convite&convite=1&codigo='+i.token});
   }
   const i=ok(await db.from('access_invites').select('*').eq('id',b.id).eq('app',app).eq('created_by',uid).single());if(Date.parse(i.expires_at)<Date.now())throw Error('Convite expirado. Gere outro.');

@@ -1,0 +1,24 @@
+create role anon;create role authenticated;create role service_role bypassrls;create schema auth;create schema private;create schema storage;
+ create table auth.users(id uuid primary key);
+ create table usuarios_app(user_id uuid primary key,perfil text,ativo boolean default false,status_aprovacao text default 'PENDENTE',trocar_senha boolean default false,email text);
+ create table access_requests(id uuid primary key default gen_random_uuid(),user_id uuid,app text,status text,nome text,cpf text,whatsapp text,email text,data_nascimento date,created_at timestamptz default now(),invite_id uuid,access_invite_id uuid,reviewed_by uuid,reviewed_at timestamptz,reason text);
+ create table motoristas(id uuid primary key default gen_random_uuid(),auth_user_id uuid unique,nome text,cpf text,telefone text,email text,data_nascimento date,status_cadastro text,cidade_uf text,cnh_registro text,categoria_cnh text,validade_cnh date,enviado_em timestamptz,analisado_por uuid,analisado_em timestamptz);
+ create table veiculos_motorista(id uuid primary key default gen_random_uuid(),motorista_id uuid,favorecido_id uuid,tipo text,papel text,placa text,capacidade_t numeric,capacidade_efetiva_t numeric,conjunto_principal boolean,proprietario_nome text,proprietario_cpf_cnpj text,cadastrado_por uuid,componentes jsonb,ativo boolean default true,created_at timestamptz default now(),marca_modelo text,ano_fabricacao integer);
+ create table favorecidos_frete(id uuid primary key default gen_random_uuid(),nome text,cpf_cnpj text,banco text,criado_por uuid,ativo boolean default true,created_at timestamptz default now());
+ create table chaves_pix_frete(favorecido_id uuid,tipo text,chave text,principal boolean,ativo boolean default true);
+ create table documentos_motorista(motorista_id uuid,tipo text,arquivo_path text);
+ create table documentos_veiculo(veiculo_id uuid,tipo text,arquivo_path text);
+ create table driver_onboarding(user_id uuid primary key,motorista_id uuid,documents_requested boolean default true,data jsonb default '{}',status text default 'DRAFT',updated_at timestamptz default now(),submitted_at timestamptz,vehicle_id uuid,beneficiary_id uuid);
+ create table access_audit(app text,event text,user_id uuid);
+ create table storage.objects(bucket_id text,name text,metadata jsonb);
+ create function private.access_is_admin(p uuid) returns boolean language sql as $$select exists(select 1 from public.usuarios_app where user_id=p and ativo and status_aprovacao='APROVADO' and not trocar_senha and perfil in ('MASTER','ADMINISTRADOR'))$$;
+ grant usage on schema public,private,storage to authenticated,service_role;
+ create function public.forte_legal_status(uuid,text) returns jsonb language sql as $$ select '{"accepted":true}'::jsonb $$;
+ create table public.viagens(id uuid primary key default gen_random_uuid(),veiculo_id uuid,status text);
+ alter table public.motoristas add column cep text,add column endereco text,add column numero text,add column bairro text,add column complemento text;
+ alter table public.veiculos_motorista add column status_aprovacao text not null default 'PENDENTE';
+ create table public.cargas(id uuid primary key,rota_id uuid,peso_min_t numeric,peso_max_t numeric,peso_unitario_kg numeric,frete_por_t numeric);
+ alter table public.motoristas add column preferencia_todas_rotas boolean;
+ create table public.motorista_rotas(motorista_id uuid,rota_id uuid);
+
+ create table public.interesses_carga(id uuid primary key);
