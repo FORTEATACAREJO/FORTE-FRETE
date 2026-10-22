@@ -1,5 +1,5 @@
 importScripts('/forte-notification-worker.js?v=20261005-1');
-const CACHE="forte-frete-homologacao-integrada-20261021-21";
+const CACHE="forte-frete-pendencias-cadastro-20261022-1";
 const CORE=['/forte-history.js','/freight-catalog.js','/vehicle-registration.js','/legal-acceptance.js','/termo-unificado.html','/forte-ui.css','/mobile-approved.css','/mobile-dashboard.js','/','/index.html','/access-standard.js','/registration-dossier.js','/driver-onboarding.js','/profiles.js','/app.js','/frete-driver.js','/frete-loads-admin.js','/registration.js','/driver-completion.js','/user-invites.js','/export-cadastros.js','/manifest.webmanifest','/favicon.svg'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(CORE)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
