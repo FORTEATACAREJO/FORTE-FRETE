@@ -21,3 +21,12 @@ test('edge derives the inviting administrator from the session and refuses drive
   assert.equal(response.status,role==='MASTER'?200:403);const call=calls.find(x=>x.name==='driver_completion_invite_create');if(role==='MASTER'){assert.equal(call.args.p_actor,'session-actor');assert.equal(call.args.p_driver,'target');assert.equal(call.args.p_phone,'5511999999999');}else assert.equal(call,undefined);
  }
 });
+test('approved drivers still show missing data, expired CNH and missing documents; fixes clear current issues',()=>{
+ const {currentDriverIssues,driverCompletionMessage}=context.module.exports;
+ const d={id:'m',nome:'Motorista',cpf:'52998224725',telefone:'11999999999',status_cadastro:'aprovado',data_nascimento:'1980-01-01',cnh_registro:'123',categoria_cnh:'E',validade_cnh:'2020-01-01',cep:'12345678',endereco:'Rua',numero:'1',bairro:'Centro',cidade_uf:'Cidade/MG',contato_emergencia:'Contato',contato_emergencia_telefone:'11999999999'};
+ assert(currentDriverIssues(d,[],'2026-10-22').includes('CNH vencida'));assert.equal(currentDriverIssues(d,[],'2026-10-22').length,3);
+ const documents=['cnh_frente','cnh_verso'].map(tipo=>({motorista_id:'m',tipo,arquivo_path:'own/'+tipo,status:'aprovado'}));
+ assert.equal(currentDriverIssues({...d,validade_cnh:'2030-01-01'},documents,'2026-10-22').length,0);
+ assert(currentDriverIssues(d,documents.map(x=>({...x,motorista_id:'other'})),'2026-10-22').some(x=>x.includes('anexar')));
+ assert(driverCompletionMessage(d,['CEP']).includes('CEP'));
+});

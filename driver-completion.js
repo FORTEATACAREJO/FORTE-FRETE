@@ -23,3 +23,17 @@ export function fillCompletionForm(form,data={}){
   if(!input.value)input.value=String(value);
  }
 }
+
+// Pendências atuais são recalculadas; aprovação não esconde campos ausentes ou CNH vencida.
+export function currentDriverIssues(driver,documents=[],today=new Date().toISOString().slice(0,10)){
+ const missing=[];
+ const required=[['nome','Nome completo'],['cpf','CPF'],['telefone','WhatsApp com DDD'],['data_nascimento','Data de nascimento'],['cnh_registro','Registro da CNH'],['categoria_cnh','Categoria da CNH'],['validade_cnh','Validade da CNH'],['cep','CEP'],['endereco','Endereço'],['numero','Número do endereço'],['bairro','Bairro'],['cidade_uf','Cidade/UF'],['contato_emergencia','Contato de emergência'],['contato_emergencia_telefone','Telefone de emergência']];
+ for(const [key,label] of required)if(!String(driver[key]||'').trim())missing.push(label);
+ if(driver.cpf&&!validCompletionCpf(driver.cpf))missing.push('CPF inválido');
+ if(driver.telefone&&!/^(?:55)?[1-9]\d[2-9]\d{7,8}$/.test(digits(driver.telefone)))missing.push('WhatsApp inválido');
+ if(driver.validade_cnh&&driver.validade_cnh<today)missing.push('CNH vencida');
+ for(const [type,label]of [['cnh_frente','CNH frente'],['cnh_verso','CNH verso']])if(!documents.some(d=>d.motorista_id===driver.id&&d.tipo===type&&d.arquivo_path&&!['rejeitado','reprovado','vencido'].includes(String(d.status||'').toLowerCase())))missing.push(label+' — documento para conferir/anexar');
+ if(driver.status_cadastro==='pendencia'&&driver.observacoes)missing.push('Correção solicitada: '+driver.observacoes);
+ return [...new Set(missing)];
+}
+export function driverCompletionMessage(driver,issues){return 'Olá, '+driver.nome+'. Seu cadastro na Forte Atacarejo tem pendências: '+issues.join('; ')+'. Entre com seu CPF e senha e complete os dados: https://forte-frete.onrender.com/';}
