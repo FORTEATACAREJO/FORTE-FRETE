@@ -1,3 +1,4 @@
+import {fixedSender,accessToken} from '../_shared/whatsapp-business.mjs';
 import {inviteActor,canSendInvite} from './invite-policy.mjs';
 import {createClient} from 'npm:@supabase/supabase-js@2.57.4';
 const origin='https://forte-frete.onrender.com';
@@ -12,7 +13,7 @@ Deno.serve(async req=>{
  try{
   const b=await req.json(),action=b.action||'DRAFT';
   const stored=ok(await db.rpc('driver_whatsapp_read'))||{};
-  const token=stored.token||Deno.env.get('WHATSAPP_ACCESS_TOKEN'),phone=stored.phone_id||Deno.env.get('WHATSAPP_PHONE_NUMBER_ID')||Deno.env.get('WHATSAPP_PHONE_ID'),waba=stored.waba_id||Deno.env.get('WHATSAPP_BUSINESS_ACCOUNT_ID')||Deno.env.get('WHATSAPP_WABA_ID'),version=stored.graph_version||Deno.env.get('WHATSAPP_GRAPH_VERSION')||'v26.0',templateName=stored.template_name||Deno.env.get('WHATSAPP_DRIVER_INVITE_TEMPLATE');
+  const token=stored.token||Deno.env.get('WHATSAPP_ACCESS_TOKEN'),phone=fixedSender().phone,waba=fixedSender().waba,version=stored.graph_version||Deno.env.get('WHATSAPP_GRAPH_VERSION')||'v26.0',templateName=stored.template_name||Deno.env.get('WHATSAPP_DRIVER_INVITE_TEMPLATE');
   if(action==='PUBLIC_CAPABILITIES')return reply({business_credentials:Boolean(token&&phone),template_configured:Boolean(templateName),signup:true});
   const jwt=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');const identity=await db.auth.getUser(jwt);if(identity.error||!identity.data.user)return reply({error:'Entre novamente para continuar.'},401);const uid=identity.data.user.id;
   const profile=ok(await db.from('usuarios_app').select('*').eq('user_id',uid).single());
@@ -23,19 +24,17 @@ Deno.serve(async req=>{
 
    if(!actor||(['CONFIGURE','TEMPLATES'].includes(action)&&!actor.admin))return reply({error:'Convites exigem motorista aprovado ou administração; a configuração Business é exclusiva da administração.'},403);
    if(action==='CONFIGURE'){
-    const t=String(b.token||''),p=String(b.phone_id||''),w=String(b.waba_id||''),name='forte_frete_convite';
-    if(t.length<30||!/^\d+$/.test(p)||!/^\d+$/.test(w))throw Error('Informe token de acesso, ID do número e ID da conta WhatsApp Business.');
+    const t=accessToken(b.token),{phone:p,waba:w}=fixedSender(b.phone_id,b.waba_id),name=templateName||'forte_frete_convite';
     const authHeaders={Authorization:'Bearer '+t};
     const phoneCheck=await fetch(`https://graph.facebook.com/${version}/${w}/phone_numbers?fields=id,display_phone_number&limit=100`,{headers:authHeaders,signal:AbortSignal.timeout(15000)});const numbers=await phoneCheck.json();
     if(!phoneCheck.ok||!numbers.data?.some((n:any)=>n.id===p))throw Error('Token inválido, sem permissão ou número não pertence à conta informada.');
     const query=await fetch(`https://graph.facebook.com/${version}/${w}/message_templates?name=${name}&fields=name,status,language,components`,{headers:authHeaders,signal:AbortSignal.timeout(15000)});const templates=await query.json();if(!query.ok)throw Error('Token sem permissão para consultar modelos de mensagem.');
     let status=templates.data?.find((x:any)=>x.name===name&&x.language==='pt_BR')?.status;
-    if(!status){
-     const created=await fetch(`https://graph.facebook.com/${version}/${w}/message_templates`,{method:'POST',headers:{...authHeaders,'Content-Type':'application/json'},body:JSON.stringify({name,language:'pt_BR',category:'MARKETING',components:[{type:'BODY',text:'Olá, {{1}}! A Forte Atacarejo convida você a criar seu acesso. O perfil será definido pela administração após análise. Cadastre-se pelo link: {{2}}',example:{body_text:[['Motorista','https://forte-frete.onrender.com/?cadastro=convite']]}}]}),signal:AbortSignal.timeout(20000)});const response=await created.json();if(!created.ok)throw Error('Meta recusou a criação do modelo. Confira permissões e a conta.');status=response.status||'PENDING';
-    }
+    status=status||'NOT_FOUND';
     ok(await db.rpc('driver_whatsapp_save',{p_actor:uid,p_token:t,p_phone:p,p_waba:w,p_template:name,p_version:version}));
-    return reply({message:status==='APPROVED'?'Credenciais verificadas e modelo aprovado. Envio Business disponível.':'Credenciais verificadas e salvas no cofre. Modelo enviado à Meta; aguarde aprovação antes de enviar convites.',template_status:status});
+    return reply({message:status==='APPROVED'?'Credenciais verificadas e modelo aprovado. Envio Business disponível.':'Credenciais verificadas e salvas no cofre. Confira o modelo aprovado na Meta antes de enviar convites; nenhum modelo foi criado ou alterado.',template_status:status});
    }
+   fixedSender(stored.phone_id,stored.waba_id);
    if(action==='INVITES'){let q=db.from('convites_motorista').select('id,codigo,ativo,expires_at,target_phone,recipient_name,send_status,send_error,total_cadastros,created_at');if(!actor.admin)q=q.eq('criado_por_motorista_id',actor.driverId);return reply({invites:ok(await q.order('created_at',{ascending:false}).limit(30)),business_credentials:Boolean(token&&phone),template_configured:Boolean(templateName)});}
    if(action==='TEMPLATES'){
     if(!token||!waba)return reply({templates:[],message:'Credenciais e ID da conta WhatsApp Business ainda não configurados no Forte Frete.'});
